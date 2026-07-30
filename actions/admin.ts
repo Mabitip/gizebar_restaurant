@@ -1,0 +1,563 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import type { Role } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { hashPassword, requireSession } from "@/lib/auth";
+import { rolesFor, type Resource } from "@/lib/permissions";
+import { slugify } from "@/lib/utils";
+import {
+  categorySchema,
+  eventAdminSchema,
+  galleryAdminSchema,
+  menuItemSchema,
+  socialLinkSchema,
+  teamAdminSchema,
+  testimonialAdminSchema,
+  userAdminSchema,
+} from "@/lib/validations";
+import { z } from "zod";
+
+async function guard(resource: Resource, action: "read" | "write" | "delete" | "manage" = "write") {
+  return requireSession(rolesFor(resource, action));
+}
+
+async function log(
+  action: string,
+  entity: string,
+  entityId?: string,
+  details?: string,
+  userId?: string
+) {
+  try {
+    await prisma.activityLog.create({
+      data: { action, entity, entityId, details, userId: userId || null },
+    });
+  } catch {
+    // ignore when DB unavailable
+  }
+}
+
+function fail(message: string) {
+  return { success: false as const, message };
+}
+function ok(message: string) {
+  return { success: true as const, message };
+}
+
+/* ─── Menu ─── */
+export async function upsertMenuItem(input: z.infer<typeof menuItemSchema> & { id?: string }) {
+  const session = await guard("menu", "write");
+  const parsed = menuItemSchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid menu item data");
+
+  const images = (parsed.data.images || []).filter(Boolean);
+  const cover = images[0] || parsed.data.image || null;
+
+  const data = {
+    name: parsed.data.name,
+    description: parsed.data.description,
+    price: parsed.data.price,
+    categoryId: parsed.data.categoryId,
+    slug: slugify(parsed.data.name),
+    tags: parsed.data.tags || [],
+    image: cover,
+    images,
+    calories: parsed.data.calories ?? null,
+    prepTime: parsed.data.prepTime ?? null,
+    isAvailable: parsed.data.isAvailable,
+    isFeatured: parsed.data.isFeatured,
+    isNew: parsed.data.isNew,
+    isBestSeller: parsed.data.isBestSeller,
+    isSignature: parsed.data.isSignature,
+    isChefPick: parsed.data.isChefPick,
+    isTodaysSpecial: parsed.data.isTodaysSpecial,
+    status: parsed.data.status,
+  };
+
+  try {
+    if (input.id) {
+      await prisma.menuItem.update({ where: { id: input.id }, data });
+      await log("UPDATE", "MenuItem", input.id, data.name, session.userId);
+    } else {
+      const created = await prisma.menuItem.create({ data: data as never });
+      await log("CREATE", "MenuItem", created.id, data.name, session.userId);
+    }
+    revalidatePath("/admin/menu");
+    revalidatePath("/menu");
+    revalidatePath("/drinks");
+    return ok("Menu item saved");
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to save");
+  }
+}
+
+export async function deleteMenuItems(ids: string[]) {
+  const session = await guard("menu", "delete");
+  try {
+    await prisma.menuItem.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "MenuItem", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/menu");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+export async function bulkPublishMenu(ids: string[], status: "PUBLISHED" | "DRAFT") {
+  const session = await guard("menu", "write");
+  try {
+    await prisma.menuItem.updateMany({ where: { id: { in: ids } }, data: { status } });
+    await log("BULK_STATUS", "MenuItem", ids.join(","), status, session.userId);
+    revalidatePath("/admin/menu");
+    return ok(`Marked as ${status}`);
+  } catch {
+    return fail("Update failed");
+  }
+}
+
+/* ─── Categories ─── */
+export async function upsertCategory(input: z.infer<typeof categorySchema> & { id?: string }) {
+  const session = await guard("categories", "write");
+  const parsed = categorySchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid category");
+  const data = {
+    name: parsed.data.name,
+    slug: slugify(parsed.data.name),
+    description: parsed.data.description || null,
+    type: parsed.data.type,
+    image: parsed.data.image || null,
+    sortOrder: parsed.data.sortOrder ?? 0,
+    status: parsed.data.status ?? "PUBLISHED",
+  };
+  try {
+    if (input.id) {
+      await prisma.category.update({ where: { id: input.id }, data });
+      await log("UPDATE", "Category", input.id, data.name, session.userId);
+    } else {
+      const created = await prisma.category.create({ data });
+      await log("CREATE", "Category", created.id, data.name, session.userId);
+    }
+    revalidatePath("/admin/categories");
+    revalidatePath("/menu");
+    return ok("Category saved");
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to save");
+  }
+}
+
+export async function deleteCategories(ids: string[]) {
+  const session = await guard("categories", "delete");
+  try {
+    await prisma.category.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "Category", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/categories");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed — categories with menu items cannot be removed.");
+  }
+}
+
+/* ─── Reservations ─── */
+export async function updateReservationStatus(id: string, status: string, notes?: string) {
+  const session = await guard("reservations", "write");
+  try {
+    await prisma.reservation.update({
+      where: { id },
+      data: {
+        status: status as never,
+        ...(notes !== undefined ? { notes } : {}),
+      },
+    });
+    await log("UPDATE", "Reservation", id, status, session.userId);
+    revalidatePath("/admin/reservations");
+    return ok("Reservation updated");
+  } catch {
+    return fail("Update failed");
+  }
+}
+
+export async function deleteReservations(ids: string[]) {
+  const session = await guard("reservations", "delete");
+  try {
+    await prisma.reservation.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "Reservation", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/reservations");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+/* ─── Events ─── */
+export async function upsertEvent(input: z.infer<typeof eventAdminSchema> & { id?: string }) {
+  const session = await guard("events", "write");
+  const parsed = eventAdminSchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid event data");
+  const data = {
+    title: parsed.data.title,
+    slug: slugify(parsed.data.title),
+    description: parsed.data.description,
+    shortDesc: parsed.data.shortDesc || null,
+    image: parsed.data.image || null,
+    category: parsed.data.category,
+    startDate: new Date(parsed.data.startDate),
+    endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
+    location: parsed.data.location || "Gize Bar & Restaurant",
+    price: parsed.data.price || null,
+    capacity: parsed.data.capacity ?? null,
+    isFeatured: parsed.data.isFeatured ?? false,
+    status: parsed.data.status ?? "PUBLISHED",
+  };
+  try {
+    if (input.id) {
+      await prisma.event.update({ where: { id: input.id }, data });
+      await log("UPDATE", "Event", input.id, data.title, session.userId);
+    } else {
+      const created = await prisma.event.create({ data });
+      await log("CREATE", "Event", created.id, data.title, session.userId);
+    }
+    revalidatePath("/admin/events");
+    revalidatePath("/events");
+    return ok("Event saved");
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to save");
+  }
+}
+
+export async function deleteEvents(ids: string[]) {
+  const session = await guard("events", "delete");
+  try {
+    await prisma.event.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "Event", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/events");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+export async function updateEventBookingStatus(id: string, status: string) {
+  const session = await guard("eventBookings", "write");
+  try {
+    await prisma.eventBooking.update({ where: { id }, data: { status } });
+    await log("UPDATE", "EventBooking", id, status, session.userId);
+    revalidatePath("/admin/bookings");
+    return ok("Booking updated");
+  } catch {
+    return fail("Update failed");
+  }
+}
+
+export async function deleteEventBookings(ids: string[]) {
+  const session = await guard("eventBookings", "delete");
+  try {
+    await prisma.eventBooking.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "EventBooking", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/bookings");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+/* ─── Gallery ─── */
+export async function upsertGalleryItem(
+  input: z.infer<typeof galleryAdminSchema> & { id?: string }
+) {
+  const session = await guard("gallery", "write");
+  const parsed = galleryAdminSchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid gallery item");
+  const data = {
+    title: parsed.data.title,
+    image: parsed.data.image,
+    videoUrl: parsed.data.videoUrl || null,
+    type: parsed.data.type ?? "PHOTO",
+    category: parsed.data.category,
+    alt: parsed.data.alt || parsed.data.title,
+    sortOrder: parsed.data.sortOrder ?? 0,
+    status: parsed.data.status ?? "PUBLISHED",
+  };
+  try {
+    if (input.id) {
+      await prisma.galleryItem.update({ where: { id: input.id }, data });
+      await log("UPDATE", "GalleryItem", input.id, data.title, session.userId);
+    } else {
+      const created = await prisma.galleryItem.create({ data });
+      await log("CREATE", "GalleryItem", created.id, data.title, session.userId);
+    }
+    revalidatePath("/admin/gallery");
+    revalidatePath("/gallery");
+    return ok("Gallery item saved");
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to save");
+  }
+}
+
+export async function deleteGalleryItems(ids: string[]) {
+  const session = await guard("gallery", "delete");
+  try {
+    await prisma.galleryItem.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "GalleryItem", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/gallery");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+/* ─── Testimonials ─── */
+export async function upsertTestimonial(
+  input: z.infer<typeof testimonialAdminSchema> & { id?: string }
+) {
+  const session = await guard("testimonials", "write");
+  const parsed = testimonialAdminSchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid testimonial");
+  const data = {
+    name: parsed.data.name,
+    role: parsed.data.role || null,
+    avatar: parsed.data.avatar || null,
+    content: parsed.data.content,
+    rating: parsed.data.rating,
+    isFeatured: parsed.data.isFeatured ?? false,
+    sortOrder: parsed.data.sortOrder ?? 0,
+    status: parsed.data.status ?? "PUBLISHED",
+  };
+  try {
+    if (input.id) {
+      await prisma.testimonial.update({ where: { id: input.id }, data });
+      await log("UPDATE", "Testimonial", input.id, data.name, session.userId);
+    } else {
+      const created = await prisma.testimonial.create({ data });
+      await log("CREATE", "Testimonial", created.id, data.name, session.userId);
+    }
+    revalidatePath("/admin/testimonials");
+    revalidatePath("/testimonials");
+    return ok("Testimonial saved");
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to save");
+  }
+}
+
+export async function deleteTestimonials(ids: string[]) {
+  const session = await guard("testimonials", "delete");
+  try {
+    await prisma.testimonial.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "Testimonial", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/testimonials");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+/* ─── Team ─── */
+export async function upsertTeamMember(input: z.infer<typeof teamAdminSchema> & { id?: string }) {
+  const session = await guard("team", "write");
+  const parsed = teamAdminSchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid team member");
+  const data = {
+    name: parsed.data.name,
+    role: parsed.data.role,
+    bio: parsed.data.bio || null,
+    image: parsed.data.image || null,
+    sortOrder: parsed.data.sortOrder ?? 0,
+    status: parsed.data.status ?? "PUBLISHED",
+  };
+  try {
+    if (input.id) {
+      await prisma.teamMember.update({ where: { id: input.id }, data });
+      await log("UPDATE", "TeamMember", input.id, data.name, session.userId);
+    } else {
+      const created = await prisma.teamMember.create({ data });
+      await log("CREATE", "TeamMember", created.id, data.name, session.userId);
+    }
+    revalidatePath("/admin/team");
+    revalidatePath("/about");
+    return ok("Team member saved");
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to save");
+  }
+}
+
+export async function deleteTeamMembers(ids: string[]) {
+  const session = await guard("team", "delete");
+  try {
+    await prisma.teamMember.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "TeamMember", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/team");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+/* ─── Contacts / Newsletter ─── */
+export async function updateContactStatus(id: string, status: string) {
+  const session = await guard("contacts", "write");
+  try {
+    await prisma.contactMessage.update({
+      where: { id },
+      data: { status: status as never },
+    });
+    await log("UPDATE", "ContactMessage", id, status, session.userId);
+    revalidatePath("/admin/contacts");
+    return ok("Contact updated");
+  } catch {
+    return fail("Update failed");
+  }
+}
+
+export async function deleteContacts(ids: string[]) {
+  const session = await guard("contacts", "delete");
+  try {
+    await prisma.contactMessage.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "ContactMessage", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/contacts");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+export async function setNewsletterActive(ids: string[], isActive: boolean) {
+  const session = await guard("newsletter", "write");
+  try {
+    await prisma.newsletter.updateMany({ where: { id: { in: ids } }, data: { isActive } });
+    await log("UPDATE", "Newsletter", ids.join(","), String(isActive), session.userId);
+    revalidatePath("/admin/newsletter");
+    return ok(isActive ? "Activated" : "Deactivated");
+  } catch {
+    return fail("Update failed");
+  }
+}
+
+export async function deleteNewsletter(ids: string[]) {
+  const session = await guard("newsletter", "delete");
+  try {
+    await prisma.newsletter.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "Newsletter", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/newsletter");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+/* ─── Users (SUPER_ADMIN) ─── */
+export async function upsertUser(input: z.infer<typeof userAdminSchema> & { id?: string }) {
+  const session = await guard("users", "write");
+  const parsed = userAdminSchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid user data");
+
+  try {
+    if (input.id) {
+      const data: {
+        name: string;
+        email: string;
+        role: Role;
+        isActive?: boolean;
+        passwordHash?: string;
+        passwordChangedAt?: Date;
+      } = {
+        name: parsed.data.name,
+        email: parsed.data.email.toLowerCase(),
+        role: parsed.data.role,
+        isActive: parsed.data.isActive,
+      };
+      if (parsed.data.password) {
+        data.passwordHash = await hashPassword(parsed.data.password);
+        data.passwordChangedAt = new Date();
+      }
+      await prisma.user.update({ where: { id: input.id }, data });
+      await log("UPDATE", "User", input.id, parsed.data.email, session.userId);
+    } else {
+      if (!parsed.data.password) return fail("Password required for new users");
+      const created = await prisma.user.create({
+        data: {
+          name: parsed.data.name,
+          email: parsed.data.email.toLowerCase(),
+          role: parsed.data.role,
+          isActive: parsed.data.isActive ?? true,
+          passwordHash: await hashPassword(parsed.data.password),
+          passwordChangedAt: new Date(),
+        },
+      });
+      await log("CREATE", "User", created.id, created.email, session.userId);
+    }
+    revalidatePath("/admin/users");
+    return ok("User saved");
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed to save user");
+  }
+}
+
+export async function deleteUsers(ids: string[]) {
+  const session = await guard("users", "delete");
+  try {
+    const filtered = ids.filter((id) => id !== session.userId);
+    if (!filtered.length) return fail("You cannot delete your own account");
+    await prisma.user.deleteMany({ where: { id: { in: filtered } } });
+    await log("DELETE", "User", filtered.join(","), undefined, session.userId);
+    revalidatePath("/admin/users");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+/* ─── Settings / Social ─── */
+export async function saveSetting(key: string, value: unknown) {
+  const session = await guard("settings", "write");
+  try {
+    await prisma.setting.upsert({
+      where: { key },
+      update: { value: value as object },
+      create: { key, value: value as object },
+    });
+    await log("UPDATE", "Setting", key, undefined, session.userId);
+    revalidatePath("/admin/settings");
+    return ok("Settings saved");
+  } catch {
+    return fail("Could not save settings");
+  }
+}
+
+export async function upsertSocialLink(
+  input: z.infer<typeof socialLinkSchema> & { id?: string }
+) {
+  const session = await guard("settings", "write");
+  const parsed = socialLinkSchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid social link");
+  const data = {
+    platform: parsed.data.platform,
+    url: parsed.data.url,
+    icon: parsed.data.icon || null,
+    sortOrder: parsed.data.sortOrder ?? 0,
+    isActive: parsed.data.isActive ?? true,
+  };
+  try {
+    if (input.id) {
+      await prisma.socialLink.update({ where: { id: input.id }, data });
+    } else {
+      await prisma.socialLink.create({ data });
+    }
+    await log("UPSERT", "SocialLink", input.id, data.platform, session.userId);
+    revalidatePath("/admin/settings");
+    return ok("Social link saved");
+  } catch {
+    return fail("Failed to save");
+  }
+}
+
+export async function deleteSocialLinks(ids: string[]) {
+  const session = await guard("settings", "delete");
+  try {
+    await prisma.socialLink.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "SocialLink", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/settings");
+    return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}

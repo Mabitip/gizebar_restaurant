@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+  <!-- Outer G clock ring -->
+  <path
+    fill="currentColor"
+    fill-rule="evenodd"
+    d="M256 56c-110.5 0-200 89.5-200 200s89.5 200 200 200c66.2 0 124.6-32.2 160.5-81.5l-52.2-36.2C340.8 370.8 301.4 392 256 392c-75.1 0-136-60.9-136-136s60.9-136 136-136c48.2 0 90.4 25.1 114.5 62.8l52.8-35.2C386.2 92.8 325.2 56 256 56zm72 168h88v48H280v-48h48z"
+  />
+  <!-- Clock dots: 12, 9, 6 -->
+  <circle cx="256" cy="120" r="14" fill="currentColor"/>
+  <circle cx="120" cy="256" r="14" fill="currentColor"/>
+  <circle cx="256" cy="392" r="14" fill="currentColor"/>
+  <!-- Cocktail glass -->
+  <path
+    fill="currentColor"
+    d="M198 168h116l-50 72v72c0 8 6 14 14 14h-44c8 0 14-6 14-14v-72l-50-72zm8 20l42 60h-84l42-60z"
+  />
+  <circle cx="256" cy="292" r="12" fill="currentColor"/>
+  <path fill="currentColor" d="M214 372h84l-12 24H226l-12-24z"/>
+  <!-- Liquid line in glass -->
+  <rect x="214" y="188" width="84" height="8" rx="2" fill="currentColor" opacity="0.95"/>
+</svg>

@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Run: npm run db:setup (requires a reachable DATABASE_URL)
+
+enum Role {
+  SUPER_ADMIN
+  RESERVATION_MANAGER
+  CONTENT_EDITOR
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum GalleryType {
+  PHOTO
+  VIDEO
+}
+
+enum ContactStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  passwordHash         String
+  name                 String
+  role                 Role      @default(CONTENT_EDITOR)
+  avatar               String?
+  isActive             Boolean   @default(true)
+  failedLoginAttempts  Int       @default(0)
+  lockedUntil          DateTime?
+  passwordChangedAt    DateTime?
+  lastLoginAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  activityLogs         ActivityLog[]
+}
+
+model Category {
+  id          String         @id @default(cuid())
+  name        String
+  slug        String         @unique
+  description String?
+  image       String?
+  type        String         @default("food") // food | drink
+  sortOrder   Int            @default(0)
+  status      PublishStatus  @default(PUBLISHED)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  menuItems   MenuItem[]
+}
+
+model MenuItem {
+  id              String         @id @default(cuid())
+  name            String
+  slug            String         @unique
+  description     String
+  price           Float
+  image           String?
+  images          String[]       @default([])
+  calories        Int?
+  prepTime        Int? // minutes
+  tags            String[]
+  isAvailable     Boolean        @default(true)
+  isFeatured      Boolean        @default(false)
+  isNew           Boolean        @default(false)
+  isBestSeller    Boolean        @default(false)
+  isSignature     Boolean        @default(false)
+  isChefPick      Boolean        @default(false)
+  isTodaysSpecial Boolean        @default(false)
+  sortOrder       Int            @default(0)
+  status          PublishStatus  @default(PUBLISHED)
+  categoryId      String
+  category        Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([categoryId])
+  @@index([isFeatured])
+  @@index([isAvailable])
+  @@index([status])
+}
+
+model Reservation {
+  id              String            @id @default(cuid())
+  name            String
+  phone           String
+  email           String
+  guests          Int
+  date            DateTime
+  time            String
+  specialRequests String?
+  status          ReservationStatus @default(PENDING)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([date])
+  @@index([status])
+}
+
+model Event {
+  id           String         @id @default(cuid())
+  title        String
+  slug         String         @unique
+  description  String
+  shortDesc    String?
+  image        String?
+  category     String // live-music | birthday | corporate | graduation | private-dinner | wedding
+  startDate    DateTime
+  endDate      DateTime?
+  location     String         @default("Gize Bar & Restaurant")
+  price        String?
+  capacity     Int?
+  isFeatured   Boolean        @default(false)
+  status       PublishStatus  @default(PUBLISHED)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  bookings     EventBooking[]
+
+  @@index([startDate])
+  @@index([status])
+}
+
+model EventBooking {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  phone     String
+  guests    Int      @default(1)
+  message   String?
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId])
+}
+
+model Testimonial {
+  id        String         @id @default(cuid())
+  name      String
+  role      String?
+  avatar    String?
+  content   String
+  rating    Int            @default(5)
+  isFeatured Boolean       @default(false)
+  status    PublishStatus  @default(PUBLISHED)
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model GalleryItem {
+  id        String         @id @default(cuid())
+  title     String
+  image     String
+  videoUrl  String?
+  type      GalleryType    @default(PHOTO)
+  category  String         @default("restaurant") // restaurant | food | drinks | events | ambiance
+  alt       String?
+  sortOrder Int            @default(0)
+  status    PublishStatus  @default(PUBLISHED)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([category])
+  @@index([type])
+}
+
+model Newsletter {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContactMessage {
+  id        String        @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String
+  status    ContactStatus @default(NEW)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model SocialLink {
+  id        String   @id @default(cuid())
+  platform  String
+  url       String
+  icon      String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model TeamMember {
+  id        String         @id @default(cuid())
+  name      String
+  role      String
+  bio       String?
+  image     String?
+  sortOrder Int            @default(0)
+  status    PublishStatus  @default(PUBLISHED)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model Media {
+  id          String   @id @default(cuid())
+  url         String
+  publicId    String?
+  filename    String?
+  mimeType    String?
+  size        Int?
+  width       Int?
+  height      Int?
+  alt         String?
+  folder      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity, createdAt])
+  @@index([userId])
+}
