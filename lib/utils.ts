@@ -32,15 +32,19 @@ export function whatsappUrl(message?: string) {
   return `https://wa.me/${number}?text=${text}`;
 }
 
+function siteBaseUrl() {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL || SITE.domain;
+  return raw.replace(/\/$/, "");
+}
+
 export function orderPageUrl(qrToken?: string) {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || SITE.domain;
+  const base = siteBaseUrl();
   return qrToken ? `${base}/order?t=${qrToken}` : `${base}/order`;
 }
 
 /** URL encoded in table QR codes — opens the public menu page. */
 export function qrMenuUrl() {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  return `${base}/menu`;
+  return `${siteBaseUrl()}/menu`;
 }
 
 export function phoneTel() {
