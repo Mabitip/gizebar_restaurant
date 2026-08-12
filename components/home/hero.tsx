@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HERO_IMAGE } from "@/lib/media";
-import { SITE, whatsappUrl } from "@/lib/utils";
+import { SITE } from "@/lib/utils";
 
 export function HeroSection() {
   return (
@@ -68,9 +68,7 @@ export function HeroSection() {
             <Link href="/reservations">Book Table</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <a href={whatsappUrl()} target="_blank" rel="noopener noreferrer">
-              Order Now
-            </a>
+            <Link href="/order">Order Now</Link>
           </Button>
         </motion.div>
       </div>

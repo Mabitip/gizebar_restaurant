@@ -28,6 +28,19 @@ export type MenuItemView = {
   category: { id: string; name: string; slug: string; type: string };
 };
 
+export type MenuModifierView = {
+  id: string;
+  name: string;
+  type: "ADD" | "REMOVE";
+  priceDelta: number;
+  isDefault: boolean;
+  sortOrder: number;
+};
+
+export type OrderMenuItemView = MenuItemView & {
+  modifiers: MenuModifierView[];
+};
+
 function staticMenu(): MenuItemView[] {
   return SEED_MENU.map((item, i) => {
     const cat = SEED_CATEGORIES.find((c) => c.slug === item.categorySlug)!;
@@ -280,5 +293,70 @@ export async function getTeam() {
       orderBy: { sortOrder: "asc" },
     });
     return team.length ? team : fallback;
+  }, fallback);
+}
+
+export async function getOrderMenuItems(): Promise<OrderMenuItemView[]> {
+  const fallback = staticMenu().map((item) => ({
+    ...item,
+    modifiers: [] as MenuModifierView[],
+  }));
+
+  return tryPrisma(async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const items = await prisma.menuItem.findMany({
+      where: {
+        status: "PUBLISHED",
+        isAvailable: true,
+        category: { status: "PUBLISHED" },
+      },
+      include: {
+        category: true,
+        modifiers: {
+          where: { isActive: true },
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        },
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
+    if (!items.length) return fallback;
+    return items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      description: item.description,
+      price: item.price,
+      image: item.image,
+      images:
+        item.images?.length > 0
+          ? item.images
+          : item.image
+            ? [item.image]
+            : [],
+      calories: item.calories,
+      prepTime: item.prepTime,
+      tags: item.tags,
+      isAvailable: item.isAvailable,
+      isFeatured: item.isFeatured,
+      isNew: item.isNew,
+      isBestSeller: item.isBestSeller,
+      isSignature: item.isSignature,
+      isChefPick: item.isChefPick,
+      isTodaysSpecial: item.isTodaysSpecial,
+      category: {
+        id: item.category.id,
+        name: item.category.name,
+        slug: item.category.slug,
+        type: item.category.type,
+      },
+      modifiers: item.modifiers.map((m) => ({
+        id: m.id,
+        name: m.name,
+        type: m.type,
+        priceDelta: m.priceDelta,
+        isDefault: m.isDefault,
+        sortOrder: m.sortOrder,
+      })),
+    }));
   }, fallback);
 }

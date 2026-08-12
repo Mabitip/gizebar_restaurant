@@ -41,6 +41,20 @@ enum ContactStatus {
   ARCHIVED
 }
 
+enum ModifierType {
+  ADD
+  REMOVE
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
 model User {
   id                   String    @id @default(cuid())
   email                String    @unique
@@ -94,6 +108,8 @@ model MenuItem {
   status          PublishStatus  @default(PUBLISHED)
   categoryId      String
   category        Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  modifiers       MenuModifier[]
+  orderItems      OrderItem[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -101,6 +117,86 @@ model MenuItem {
   @@index([isFeatured])
   @@index([isAvailable])
   @@index([status])
+}
+
+model DiningTable {
+  id        String   @id @default(cuid())
+  number    Int      @unique
+  label     String?
+  zone      String?
+  qrToken   String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+
+  @@index([isActive])
+}
+
+model MenuModifier {
+  id         String       @id @default(cuid())
+  menuItemId String
+  menuItem   MenuItem     @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  name       String
+  type       ModifierType
+  priceDelta Float        @default(0)
+  isDefault  Boolean      @default(false)
+  sortOrder  Int          @default(0)
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([menuItemId])
+  @@index([isActive])
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderNumber   Int         @unique
+  tableNumber   Int
+  diningTableId String?
+  diningTable   DiningTable? @relation(fields: [diningTableId], references: [id], onDelete: SetNull)
+  guestName     String?
+  guestPhone    String?
+  note          String?
+  status        OrderStatus @default(PENDING)
+  subtotal      Float
+  total         Float
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  items         OrderItem[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([tableNumber])
+}
+
+model OrderItem {
+  id         String              @id @default(cuid())
+  orderId    String
+  order      Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String?
+  menuItem   MenuItem?           @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  name       String
+  unitPrice  Float
+  quantity   Int                 @default(1)
+  note       String?
+  lineTotal  Float
+  modifiers  OrderItemModifier[]
+  createdAt  DateTime            @default(now())
+
+  @@index([orderId])
+}
+
+model OrderItemModifier {
+  id          String       @id @default(cuid())
+  orderItemId String
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  name        String
+  type        ModifierType
+  priceDelta  Float        @default(0)
+
+  @@index([orderItemId])
 }
 
 model Reservation {

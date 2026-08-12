@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "crypto";
 import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, requireSession } from "@/lib/auth";
@@ -8,9 +9,11 @@ import { rolesFor, type Resource } from "@/lib/permissions";
 import { slugify } from "@/lib/utils";
 import {
   categorySchema,
+  diningTableSchema,
   eventAdminSchema,
   galleryAdminSchema,
   menuItemSchema,
+  menuModifierSchema,
   socialLinkSchema,
   teamAdminSchema,
   testimonialAdminSchema,
@@ -557,6 +560,114 @@ export async function deleteSocialLinks(ids: string[]) {
     await log("DELETE", "SocialLink", ids.join(","), undefined, session.userId);
     revalidatePath("/admin/settings");
     return ok("Deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+/* ─── Dining Tables ─── */
+
+function generateQrToken() {
+  return randomBytes(16).toString("hex");
+}
+
+export async function upsertDiningTable(
+  input: z.infer<typeof diningTableSchema> & { id?: string }
+) {
+  const session = await guard("tables", "write");
+  const parsed = diningTableSchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid table data");
+
+  const data = {
+    number: parsed.data.number,
+    label: parsed.data.label || null,
+    zone: parsed.data.zone || null,
+    isActive: parsed.data.isActive ?? true,
+  };
+
+  try {
+    if (input.id) {
+      await prisma.diningTable.update({ where: { id: input.id }, data });
+      await log("UPDATE", "DiningTable", input.id, `Table ${data.number}`, session.userId);
+    } else {
+      await prisma.diningTable.create({
+        data: { ...data, qrToken: generateQrToken() },
+      });
+      await log("CREATE", "DiningTable", undefined, `Table ${data.number}`, session.userId);
+    }
+    revalidatePath("/admin/tables");
+    return ok("Table saved");
+  } catch {
+    return fail("Could not save table. Number may already exist.");
+  }
+}
+
+export async function deleteDiningTables(ids: string[]) {
+  const session = await guard("tables", "delete");
+  try {
+    await prisma.diningTable.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "DiningTable", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/tables");
+    return ok("Tables deleted");
+  } catch {
+    return fail("Delete failed");
+  }
+}
+
+export async function regenerateTableQrToken(id: string) {
+  const session = await guard("tables", "write");
+  try {
+    await prisma.diningTable.update({
+      where: { id },
+      data: { qrToken: generateQrToken() },
+    });
+    await log("REGENERATE_QR", "DiningTable", id, undefined, session.userId);
+    revalidatePath("/admin/tables");
+    return ok("QR code regenerated");
+  } catch {
+    return fail("Could not regenerate QR code");
+  }
+}
+
+/* ─── Menu Modifiers ─── */
+export async function upsertMenuModifier(
+  input: z.infer<typeof menuModifierSchema> & { id?: string }
+) {
+  const session = await guard("menu", "write");
+  const parsed = menuModifierSchema.safeParse(input);
+  if (!parsed.success) return fail("Invalid modifier data");
+
+  const data = {
+    menuItemId: parsed.data.menuItemId,
+    name: parsed.data.name,
+    type: parsed.data.type,
+    priceDelta: parsed.data.type === "REMOVE" ? 0 : (parsed.data.priceDelta ?? 0),
+    isDefault: parsed.data.isDefault ?? false,
+    sortOrder: parsed.data.sortOrder ?? 0,
+    isActive: parsed.data.isActive ?? true,
+  };
+
+  try {
+    if (input.id) {
+      await prisma.menuModifier.update({ where: { id: input.id }, data });
+    } else {
+      await prisma.menuModifier.create({ data });
+    }
+    await log("UPSERT", "MenuModifier", input.id, data.name, session.userId);
+    revalidatePath("/admin/menu");
+    return ok("Modifier saved");
+  } catch {
+    return fail("Could not save modifier");
+  }
+}
+
+export async function deleteMenuModifiers(ids: string[]) {
+  const session = await guard("menu", "delete");
+  try {
+    await prisma.menuModifier.deleteMany({ where: { id: { in: ids } } });
+    await log("DELETE", "MenuModifier", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/menu");
+    return ok("Modifiers deleted");
   } catch {
     return fail("Delete failed");
   }

@@ -3,6 +3,8 @@ import { getMenuItems, getCategories } from "@/lib/data";
 import { AdminMenuManager } from "@/components/admin/menu-manager";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
+import type { ModifierRow } from "@/components/admin/modifier-manager";
 
 export default async function AdminMenuPage() {
   const session = await getSession();
@@ -10,13 +12,33 @@ export default async function AdminMenuPage() {
 
   const [items, categories] = await Promise.all([getMenuItems(), getCategories()]);
 
+  let modifiersByItem: Record<string, ModifierRow[]> = {};
+  try {
+    if (!(process.env.DATABASE_URL || "").includes("user:password@")) {
+      const modifiers = await prisma.menuModifier.findMany({
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      });
+      modifiersByItem = modifiers.reduce<Record<string, ModifierRow[]>>((acc, m) => {
+        if (!acc[m.menuItemId]) acc[m.menuItemId] = [];
+        acc[m.menuItemId].push(m);
+        return acc;
+      }, {});
+    }
+  } catch {
+    modifiersByItem = {};
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="font-heading text-3xl">Manage Menu</h2>
-        <p className="text-sm text-muted">Create, edit, feature, and publish menu items.</p>
+        <p className="text-sm text-muted">Create, edit, feature, publish menu items, and set add/remove options.</p>
       </div>
-      <AdminMenuManager items={items} categories={categories} />
+      <AdminMenuManager
+        items={items}
+        categories={categories}
+        modifiersByItem={modifiersByItem}
+      />
     </div>
   );
 }

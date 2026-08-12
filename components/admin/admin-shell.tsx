@@ -15,6 +15,7 @@ import {
   Menu,
   MessageSquare,
   PartyPopper,
+  QrCode,
   Settings,
   Star,
   Ticket,
@@ -43,6 +44,8 @@ const ICONS: Record<NavItem["icon"], React.ComponentType<{ className?: string }>
   analytics: BarChart3,
   users: Users,
   settings: Settings,
+  orders: Ticket,
+  tables: QrCode,
 };
 
 function NavLinks({

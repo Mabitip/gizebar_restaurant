@@ -8,7 +8,7 @@ import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { MEDIA } from "@/lib/media";
-import { NAV_LINKS, SITE, whatsappUrl, cn } from "@/lib/utils";
+import { NAV_LINKS, SITE, cn } from "@/lib/utils";
 
 export function Navbar({
   authHref = "/login",
@@ -96,9 +96,7 @@ export function Navbar({
           </Link>
           <ThemeToggle />
           <Button asChild size="sm" variant="outline" className="border-white/40">
-            <a href={whatsappUrl()} target="_blank" rel="noopener noreferrer">
-              Order Now
-            </a>
+            <Link href="/order">Order Now</Link>
           </Button>
           <Button
             asChild
@@ -159,9 +157,7 @@ export function Navbar({
                 <Link href="/reservations">Book Table</Link>
               </Button>
               <Button asChild variant="outline">
-                <a href={whatsappUrl()} target="_blank" rel="noopener noreferrer">
-                  Order Now
-                </a>
+                <Link href="/order">Order Now</Link>
               </Button>
             </div>
           </div>

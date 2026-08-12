@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MultiImageUploadField } from "@/components/admin/multi-image-upload-field";
+import { ModifierManager, type ModifierRow } from "@/components/admin/modifier-manager";
 import {
   bulkPublishMenu,
   deleteMenuItems,
@@ -19,9 +20,11 @@ import { formatPrice } from "@/lib/utils";
 export function AdminMenuManager({
   items,
   categories,
+  modifiersByItem = {},
 }: {
   items: MenuItemView[];
   categories: { id: string; name: string; slug: string }[];
+  modifiersByItem?: Record<string, ModifierRow[]>;
   }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -91,6 +94,7 @@ export function AdminMenuManager({
         <MenuItemForm
           categories={categories}
           initial={editing}
+          modifiers={editing ? modifiersByItem[editing.id] || [] : []}
           onClose={() => {
             setCreating(false);
             setEditing(null);
@@ -176,10 +180,12 @@ export function AdminMenuManager({
 function MenuItemForm({
   categories,
   initial,
+  modifiers,
   onClose,
 }: {
   categories: { id: string; name: string; slug: string }[];
   initial: MenuItemView | null;
+  modifiers: ModifierRow[];
   onClose: () => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -310,6 +316,14 @@ function MenuItemForm({
           Cancel
         </Button>
       </div>
+
+      {initial?.id && (
+        <ModifierManager
+          menuItemId={initial.id}
+          menuItemName={initial.name}
+          modifiers={modifiers}
+        />
+      )}
     </div>
   );
 }

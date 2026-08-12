@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { NAV_LINKS, SITE, whatsappUrl, cn } from "@/lib/utils";
+import { NAV_LINKS, SITE, cn } from "@/lib/utils";
 
 const PRIMARY_HREFS = new Set(["/", "/menu", "/reservations", "/drinks"]);
 
@@ -184,9 +184,7 @@ export function MobileBottomNav({
                 <Link href="/reservations">Book a Table</Link>
               </Button>
               <Button asChild variant="outline" className="w-full">
-                <a href={whatsappUrl()} target="_blank" rel="noopener noreferrer">
-                  Order on WhatsApp
-                </a>
+                <Link href="/order">Order Now</Link>
               </Button>
             </div>
           </div>

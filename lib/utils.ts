@@ -32,6 +32,17 @@ export function whatsappUrl(message?: string) {
   return `https://wa.me/${number}?text=${text}`;
 }
 
+export function orderPageUrl(qrToken?: string) {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || SITE.domain;
+  return qrToken ? `${base}/order?t=${qrToken}` : `${base}/order`;
+}
+
+/** URL encoded in table QR codes — opens the public menu page. */
+export function qrMenuUrl() {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  return `${base}/menu`;
+}
+
 export function phoneTel() {
   return "tel:+251968626262";
 }

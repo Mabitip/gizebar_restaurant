@@ -127,7 +127,48 @@ export const menuItemSchema = z.object({
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
 });
 
+export const diningTableSchema = z.object({
+  number: z.number().int().min(1).max(999),
+  label: z.string().optional().nullable(),
+  zone: z.string().optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+
+export const menuModifierSchema = z.object({
+  menuItemId: z.string().min(1),
+  name: z.string().min(1),
+  type: z.enum(["ADD", "REMOVE"]),
+  priceDelta: z.number().min(0).optional(),
+  isDefault: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const orderItemModifierInputSchema = z.object({
+  modifierId: z.string().optional(),
+  name: z.string().min(1),
+  type: z.enum(["ADD", "REMOVE"]),
+  priceDelta: z.number().min(0),
+});
+
+export const orderItemInputSchema = z.object({
+  menuItemId: z.string().min(1),
+  quantity: z.number().int().min(1).max(50),
+  note: z.string().max(500).optional().nullable(),
+  modifiers: z.array(orderItemModifierInputSchema).optional(),
+});
+
+export const createOrderSchema = z.object({
+  tableNumber: z.number().int().min(1).max(999),
+  qrToken: z.string().optional().nullable(),
+  guestName: z.string().max(100).optional().nullable(),
+  guestPhone: z.string().max(20).optional().nullable(),
+  note: z.string().max(500).optional().nullable(),
+  items: z.array(orderItemInputSchema).min(1),
+});
+
 export type ReservationInput = z.infer<typeof reservationSchema>;
 export type ContactInput = z.infer<typeof contactSchema>;
 export type NewsletterInput = z.infer<typeof newsletterSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type CreateOrderInput = z.infer<typeof createOrderSchema>;

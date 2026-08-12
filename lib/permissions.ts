@@ -19,7 +19,9 @@ export type Resource =
   | "team"
   | "testimonials"
   | "media"
-  | "activity";
+  | "activity"
+  | "orders"
+  | "tables";
 
 type Rule = {
   read?: Role[];
@@ -50,6 +52,8 @@ const MATRIX: Record<Resource, Rule> = {
   testimonials: { read: CONTENT, write: CONTENT, delete: CONTENT, manage: CONTENT },
   media: { read: CONTENT, write: CONTENT, delete: CONTENT, manage: CONTENT },
   activity: { read: ALL },
+  orders: { read: OPS, write: OPS, delete: OPS, manage: OPS },
+  tables: { read: OPS, write: OPS, delete: OPS, manage: OPS },
 };
 
 export function can(
@@ -110,7 +114,9 @@ export type NavItem = {
     | "media"
     | "analytics"
     | "users"
-    | "settings";
+    | "settings"
+    | "orders"
+    | "tables";
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -118,6 +124,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/admin/menu", label: "Menu", resource: "menu", icon: "menu" },
   { href: "/admin/categories", label: "Categories", resource: "categories", icon: "categories" },
   { href: "/admin/reservations", label: "Reservations", resource: "reservations", icon: "reservations" },
+  { href: "/admin/orders", label: "Orders", resource: "orders", icon: "orders" },
+  { href: "/admin/tables", label: "Tables & QR", resource: "tables", icon: "tables" },
   { href: "/admin/events", label: "Events", resource: "events", icon: "events" },
   { href: "/admin/bookings", label: "Event Bookings", resource: "eventBookings", icon: "bookings" },
   { href: "/admin/gallery", label: "Gallery", resource: "gallery", icon: "gallery" },
@@ -142,6 +150,8 @@ export function resourceForPath(pathname: string): Resource | null {
     ["/admin/users", "users"],
     ["/admin/settings", "settings"],
     ["/admin/reservations", "reservations"],
+    ["/admin/orders", "orders"],
+    ["/admin/tables", "tables"],
     ["/admin/bookings", "eventBookings"],
     ["/admin/contacts", "contacts"],
     ["/admin/newsletter", "newsletter"],

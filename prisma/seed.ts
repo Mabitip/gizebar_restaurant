@@ -225,6 +225,43 @@ async function main() {
     },
   });
 
+  // Dining tables with QR tokens
+  for (let n = 1; n <= 12; n++) {
+    const token = `tbl${n.toString().padStart(2, "0")}${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+    await prisma.diningTable.upsert({
+      where: { number: n },
+      update: { isActive: true },
+      create: {
+        number: n,
+        label: `Table ${n}`,
+        zone: n <= 6 ? "Main Hall" : "Terrace",
+        qrToken: token,
+        isActive: true,
+      },
+    });
+  }
+
+  // Sample modifiers on featured menu items
+  const featuredItems = await prisma.menuItem.findMany({
+    where: { isFeatured: true },
+    take: 5,
+  });
+
+  for (const item of featuredItems) {
+    const existing = await prisma.menuModifier.count({ where: { menuItemId: item.id } });
+    if (existing > 0) continue;
+
+    await prisma.menuModifier.createMany({
+      data: [
+        { menuItemId: item.id, name: "Extra portion", type: "ADD", priceDelta: 150, sortOrder: 1 },
+        { menuItemId: item.id, name: "Add cheese", type: "ADD", priceDelta: 80, sortOrder: 2 },
+        { menuItemId: item.id, name: "No onion", type: "REMOVE", priceDelta: 0, sortOrder: 3 },
+        { menuItemId: item.id, name: "No spice", type: "REMOVE", priceDelta: 0, sortOrder: 4 },
+        { menuItemId: item.id, name: "Extra spicy", type: "ADD", priceDelta: 0, sortOrder: 5 },
+      ],
+    });
+  }
+
   console.log("Seed completed successfully.");
   console.log(`SUPER_ADMIN: ${adminEmail} / ${adminPassword}`);
   console.log(`RESERVATION_MANAGER: ${reservationEmail} / ${reservationPassword}`);
