@@ -6,10 +6,10 @@ export const loginSchema = z.object({
 });
 
 export const userAdminSchema = z.object({
-  name: z.string().min(2),
+  name: z.string().min(2).max(100),
   email: z.string().email(),
   role: z.enum(["SUPER_ADMIN", "RESERVATION_MANAGER", "CONTENT_EDITOR"]),
-  password: z.string().min(8).optional(),
+  password: z.string().min(12).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -37,10 +37,38 @@ export const eventAdminSchema = z.object({
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
 });
 
+const videoUrlSchema = z
+  .string()
+  .optional()
+  .nullable()
+  .refine(
+    (val) => {
+      if (!val) return true;
+      try {
+        const url = new URL(val);
+        if (url.protocol !== "https:") return false;
+        const host = url.hostname.toLowerCase();
+        return (
+          host === "www.youtube.com" ||
+          host === "youtube.com" ||
+          host === "www.youtube-nocookie.com" ||
+          host === "youtube-nocookie.com" ||
+          host === "youtu.be" ||
+          host === "player.vimeo.com" ||
+          host === "vimeo.com" ||
+          host === "www.vimeo.com"
+        );
+      } catch {
+        return false;
+      }
+    },
+    { message: "Video URL must be a YouTube or Vimeo https link" }
+  );
+
 export const galleryAdminSchema = z.object({
   title: z.string().min(2),
   image: z.string().min(1),
-  videoUrl: z.string().optional().nullable(),
+  videoUrl: videoUrlSchema,
   type: z.enum(["PHOTO", "VIDEO"]).optional(),
   category: z.string().min(2),
   alt: z.string().optional().nullable(),
@@ -77,35 +105,54 @@ export const socialLinkSchema = z.object({
 });
 
 export const reservationSchema = z.object({
-  name: z.string().min(2, "Name is required"),
-  phone: z.string().min(8, "Valid phone required"),
-  email: z.string().email("Valid email required"),
+  name: z.string().min(2, "Name is required").max(100),
+  phone: z.string().min(8, "Valid phone required").max(30),
+  email: z.string().email("Valid email required").max(200),
   guests: z.number().int().min(1).max(50),
   date: z.string().min(1, "Date is required"),
   time: z.string().min(1, "Time is required"),
-  specialRequests: z.string().optional(),
+  specialRequests: z.string().max(2000).optional(),
 });
 
 export const contactSchema = z.object({
-  name: z.string().min(2, "Name is required"),
-  email: z.string().email("Valid email required"),
-  phone: z.string().optional(),
-  subject: z.string().optional(),
-  message: z.string().min(10, "Message must be at least 10 characters"),
+  name: z.string().min(2, "Name is required").max(100),
+  email: z.string().email("Valid email required").max(200),
+  phone: z.string().max(30).optional(),
+  subject: z.string().max(200).optional(),
+  message: z.string().min(10, "Message must be at least 10 characters").max(5000),
 });
 
 export const newsletterSchema = z.object({
-  email: z.string().email("Valid email required"),
+  email: z.string().email("Valid email required").max(200),
 });
 
 export const eventBookingSchema = z.object({
-  eventId: z.string().min(1),
-  name: z.string().min(2),
-  email: z.string().email(),
-  phone: z.string().min(8),
+  eventId: z.string().min(1).max(100),
+  name: z.string().min(2).max(100),
+  email: z.string().email().max(200),
+  phone: z.string().min(8).max(30),
   guests: z.number().int().min(1).max(200),
-  message: z.string().optional(),
+  message: z.string().max(2000).optional(),
 });
+
+export const reservationStatusSchema = z.enum([
+  "PENDING",
+  "CONFIRMED",
+  "CANCELLED",
+  "COMPLETED",
+  "NO_SHOW",
+]);
+
+export const contactStatusSchema = z.enum(["NEW", "READ", "REPLIED", "ARCHIVED"]);
+
+export const eventBookingStatusSchema = z.enum([
+  "PENDING",
+  "CONFIRMED",
+  "CANCELLED",
+  "COMPLETED",
+]);
+
+export const settingKeySchema = z.enum(["site", "seo", "social", "hours", "branding"]);
 
 export const menuItemSchema = z.object({
   name: z.string().min(2),
@@ -145,26 +192,26 @@ export const menuModifierSchema = z.object({
 });
 
 export const orderItemModifierInputSchema = z.object({
-  modifierId: z.string().optional(),
-  name: z.string().min(1),
-  type: z.enum(["ADD", "REMOVE"]),
-  priceDelta: z.number().min(0),
+  modifierId: z.string().min(1),
+  name: z.string().min(1).optional(),
+  type: z.enum(["ADD", "REMOVE"]).optional(),
+  priceDelta: z.number().min(0).optional(),
 });
 
 export const orderItemInputSchema = z.object({
   menuItemId: z.string().min(1),
   quantity: z.number().int().min(1).max(50),
   note: z.string().max(500).optional().nullable(),
-  modifiers: z.array(orderItemModifierInputSchema).optional(),
+  modifiers: z.array(orderItemModifierInputSchema).max(20).optional(),
 });
 
 export const createOrderSchema = z.object({
   tableNumber: z.number().int().min(1).max(999),
-  qrToken: z.string().optional().nullable(),
+  qrToken: z.string().min(8).max(128),
   guestName: z.string().max(100).optional().nullable(),
   guestPhone: z.string().max(20).optional().nullable(),
   note: z.string().max(500).optional().nullable(),
-  items: z.array(orderItemInputSchema).min(1),
+  items: z.array(orderItemInputSchema).min(1).max(30),
 });
 
 export type ReservationInput = z.infer<typeof reservationSchema>;

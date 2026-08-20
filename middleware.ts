@@ -51,7 +51,10 @@ export async function middleware(request: NextRequest) {
   }
 
   const resource = resourceForPath(pathname);
-  if (resource && !can(session, resource, "read")) {
+  if (!resource) {
+    return NextResponse.redirect(new URL(homePathForRole(session.role), request.url));
+  }
+  if (!can(session, resource, "read")) {
     return NextResponse.redirect(new URL(homePathForRole(session.role), request.url));
   }
 

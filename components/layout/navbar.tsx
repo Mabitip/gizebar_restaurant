@@ -3,12 +3,108 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { MEDIA } from "@/lib/media";
-import { NAV_LINKS, SITE, cn } from "@/lib/utils";
+import { NAV_LINKS, SITE, cn, type NavLink } from "@/lib/utils";
+
+function linkActive(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function NavItem({ link, pathname }: { link: NavLink; pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const hasChildren = !!link.children?.length;
+  const active =
+    linkActive(pathname, link.href) ||
+    !!link.children?.some((child) => linkActive(pathname, child.href));
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (!hasChildren) {
+    return (
+      <Link
+        href={link.href}
+        className={cn(
+          "rounded-full px-3 py-2 text-sm transition-colors",
+          active
+            ? "bg-white/15 text-white underline decoration-white decoration-2 underline-offset-8"
+            : "text-white/85 hover:text-white"
+        )}
+      >
+        {link.label}
+      </Link>
+    );
+  }
+
+  return (
+    <div
+      ref={ref}
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm transition-colors",
+          active
+            ? "bg-white/15 text-white underline decoration-white decoration-2 underline-offset-8"
+            : "text-white/85 hover:text-white"
+        )}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {link.label}
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-1/2 top-full z-50 mt-2 min-w-[200px] -translate-x-1/2 rounded-2xl border border-white/15 bg-primary/95 p-2 shadow-xl backdrop-blur-xl"
+        >
+          {link.children!.map((child) => (
+            <Link
+              key={child.href}
+              href={child.href}
+              role="menuitem"
+              className={cn(
+                "block rounded-xl px-4 py-2.5 text-sm transition",
+                linkActive(pathname, child.href)
+                  ? "bg-white text-primary"
+                  : "text-white/90 hover:bg-white/10"
+              )}
+              onClick={() => setOpen(false)}
+            >
+              {child.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Navbar({
   authHref = "/login",
@@ -20,6 +116,7 @@ export function Navbar({
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -30,6 +127,7 @@ export function Navbar({
 
   useEffect(() => {
     setOpen(false);
+    setExpanded(null);
   }, [pathname]);
 
   return (
@@ -72,18 +170,7 @@ export function Navbar({
 
         <div className="hidden items-center gap-1 xl:flex">
           {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                "rounded-full px-3 py-2 text-sm transition-colors",
-                pathname === link.href
-                  ? "bg-white/15 text-white underline decoration-white decoration-2 underline-offset-8"
-                  : "text-white/85 hover:text-white"
-              )}
-            >
-              {link.label}
-            </Link>
+            <NavItem key={link.href} link={link} pathname={pathname} />
           ))}
         </div>
 
@@ -107,7 +194,6 @@ export function Navbar({
           </Button>
         </div>
 
-        {/* Tablet: overflow menu. Phones use bottom nav More sheet. */}
         <div className="hidden items-center gap-2 md:flex xl:hidden">
           <ThemeToggle />
           <button
@@ -129,20 +215,69 @@ export function Navbar({
       {open && (
         <div className="hidden border-t border-white/15 bg-primary px-4 py-6 md:block xl:hidden">
           <div className="flex flex-col gap-2">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "rounded-xl px-4 py-3 text-base",
-                  pathname === link.href
-                    ? "bg-white text-primary"
-                    : "text-white/90 hover:bg-white/10"
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {NAV_LINKS.map((link) => {
+              const active =
+                linkActive(pathname, link.href) ||
+                !!link.children?.some((child) => linkActive(pathname, child.href));
+
+              if (!link.children?.length) {
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={cn(
+                      "rounded-xl px-4 py-3 text-base",
+                      active ? "bg-white text-primary" : "text-white/90 hover:bg-white/10"
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              }
+
+              const isExpanded = expanded === link.href;
+              return (
+                <div key={link.href} className="rounded-xl">
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-base",
+                      active ? "bg-white/15 text-white" : "text-white/90 hover:bg-white/10"
+                    )}
+                    aria-expanded={isExpanded}
+                    onClick={() =>
+                      setExpanded((prev) => (prev === link.href ? null : link.href))
+                    }
+                  >
+                    {link.label}
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 transition-transform",
+                        isExpanded && "rotate-180"
+                      )}
+                    />
+                  </button>
+                  {isExpanded && (
+                    <div className="mt-1 space-y-1 border-l border-white/20 pl-3">
+                      {link.children.map((child) => (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={cn(
+                            "block rounded-xl px-4 py-2.5 text-sm",
+                            linkActive(pathname, child.href)
+                              ? "bg-white text-primary"
+                              : "text-white/85 hover:bg-white/10"
+                          )}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <Link
               href={authHref}
               className="rounded-xl px-4 py-3 text-base text-white/90 hover:bg-white/10"

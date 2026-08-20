@@ -20,3 +20,15 @@ export function rateLimit(
   entry.count += 1;
   return { success: true, remaining: limit - entry.count };
 }
+
+/** Prefer platform IP; fall back to first X-Forwarded-For hop. */
+export function clientIpFromHeaders(h: Headers): string {
+  const realIp = h.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+  const forwarded = h.get("x-forwarded-for");
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return "unknown";
+}

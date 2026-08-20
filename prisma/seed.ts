@@ -37,14 +37,32 @@ async function upsertStaff(
   });
 }
 
+async function requireStaffPassword(envKey: string): Promise<string> {
+  const value = process.env[envKey]?.trim();
+  const banned = new Set([
+    "GizeAdmin2024!",
+    "GizeReserve2024!",
+    "GizeEditor2024!",
+    "password",
+    "admin",
+    "changeme",
+  ]);
+  if (!value || value.length < 12 || banned.has(value)) {
+    throw new Error(
+      `Missing or weak ${envKey}. Set a strong password (12+ chars) in the environment before seeding.`
+    );
+  }
+  return value;
+}
+
 async function main() {
   const adminEmail = (process.env.ADMIN_EMAIL || "admin@gizebarandrestaurant.com").toLowerCase();
-  const adminPassword = process.env.ADMIN_PASSWORD || "GizeAdmin2024!";
+  const adminPassword = await requireStaffPassword("ADMIN_PASSWORD");
   const reservationEmail =
     process.env.RESERVATION_EMAIL || "reservations@gizebarandrestaurant.com";
-  const reservationPassword = process.env.RESERVATION_PASSWORD || "GizeReserve2024!";
+  const reservationPassword = await requireStaffPassword("RESERVATION_PASSWORD");
   const editorEmail = process.env.EDITOR_EMAIL || "editor@gizebarandrestaurant.com";
-  const editorPassword = process.env.EDITOR_PASSWORD || "GizeEditor2024!";
+  const editorPassword = await requireStaffPassword("EDITOR_PASSWORD");
 
   await upsertStaff(adminEmail, "Gize Super Admin", adminPassword, "SUPER_ADMIN");
   await upsertStaff(
@@ -55,7 +73,8 @@ async function main() {
   );
   await upsertStaff(editorEmail, "Content Editor", editorPassword, "CONTENT_EDITOR");
 
-  // Migrate legacy role labels if any rows remain with old enum (best-effort via raw SQL skipped — handled by role rename in schema)
+  console.log(`Seeded staff accounts for: ${adminEmail}, ${reservationEmail}, ${editorEmail}`);
+  // Passwords are never logged.
 
   for (const cat of SEED_CATEGORIES) {
     await prisma.category.upsert({
@@ -262,10 +281,7 @@ async function main() {
     });
   }
 
-  console.log("Seed completed successfully.");
-  console.log(`SUPER_ADMIN: ${adminEmail} / ${adminPassword}`);
-  console.log(`RESERVATION_MANAGER: ${reservationEmail} / ${reservationPassword}`);
-  console.log(`CONTENT_EDITOR: ${editorEmail} / ${editorPassword}`);
+  console.log("Seed completed successfully. Staff passwords were set from environment variables (not logged).");
 }
 
 main()

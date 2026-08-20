@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { NewsletterForm } from "@/components/forms/newsletter-form";
-import { NAV_LINKS, OPENING_HOURS, SITE } from "@/lib/utils";
+import { flattenNavLinks, OPENING_HOURS, SITE } from "@/lib/utils";
 
 const socialLinks = [
   {
@@ -56,7 +56,7 @@ export function Footer() {
           <div>
             <h3 className="mb-4 font-heading text-lg text-foreground">Quick Links</h3>
             <ul className="space-y-2 text-sm text-muted">
-              {NAV_LINKS.map((link) => (
+              {flattenNavLinks().map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="transition hover:text-primary">
                     {link.label}

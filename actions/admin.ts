@@ -9,16 +9,21 @@ import { rolesFor, type Resource } from "@/lib/permissions";
 import { slugify } from "@/lib/utils";
 import {
   categorySchema,
+  contactStatusSchema,
   diningTableSchema,
   eventAdminSchema,
+  eventBookingStatusSchema,
   galleryAdminSchema,
   menuItemSchema,
   menuModifierSchema,
+  reservationStatusSchema,
+  settingKeySchema,
   socialLinkSchema,
   teamAdminSchema,
   testimonialAdminSchema,
   userAdminSchema,
 } from "@/lib/validations";
+import { sanitizeVideoEmbedUrl } from "@/lib/video-url";
 import { z } from "zod";
 
 async function guard(resource: Resource, action: "read" | "write" | "delete" | "manage" = "write") {
@@ -91,7 +96,7 @@ export async function upsertMenuItem(input: z.infer<typeof menuItemSchema> & { i
     revalidatePath("/drinks");
     return ok("Menu item saved");
   } catch (e) {
-    return fail(e instanceof Error ? e.message : "Failed to save");
+    console.error(e); return fail("Failed to save");
   }
 }
 
@@ -145,7 +150,7 @@ export async function upsertCategory(input: z.infer<typeof categorySchema> & { i
     revalidatePath("/menu");
     return ok("Category saved");
   } catch (e) {
-    return fail(e instanceof Error ? e.message : "Failed to save");
+    console.error(e); return fail("Failed to save");
   }
 }
 
@@ -164,15 +169,17 @@ export async function deleteCategories(ids: string[]) {
 /* ─── Reservations ─── */
 export async function updateReservationStatus(id: string, status: string, notes?: string) {
   const session = await guard("reservations", "write");
+  const parsedStatus = reservationStatusSchema.safeParse(status);
+  if (!parsedStatus.success) return fail("Invalid reservation status");
   try {
     await prisma.reservation.update({
       where: { id },
       data: {
-        status: status as never,
+        status: parsedStatus.data,
         ...(notes !== undefined ? { notes } : {}),
       },
     });
-    await log("UPDATE", "Reservation", id, status, session.userId);
+    await log("UPDATE", "Reservation", id, parsedStatus.data, session.userId);
     revalidatePath("/admin/reservations");
     return ok("Reservation updated");
   } catch {
@@ -224,7 +231,7 @@ export async function upsertEvent(input: z.infer<typeof eventAdminSchema> & { id
     revalidatePath("/events");
     return ok("Event saved");
   } catch (e) {
-    return fail(e instanceof Error ? e.message : "Failed to save");
+    console.error(e); return fail("Failed to save");
   }
 }
 
@@ -242,9 +249,14 @@ export async function deleteEvents(ids: string[]) {
 
 export async function updateEventBookingStatus(id: string, status: string) {
   const session = await guard("eventBookings", "write");
+  const parsedStatus = eventBookingStatusSchema.safeParse(status);
+  if (!parsedStatus.success) return fail("Invalid booking status");
   try {
-    await prisma.eventBooking.update({ where: { id }, data: { status } });
-    await log("UPDATE", "EventBooking", id, status, session.userId);
+    await prisma.eventBooking.update({
+      where: { id },
+      data: { status: parsedStatus.data },
+    });
+    await log("UPDATE", "EventBooking", id, parsedStatus.data, session.userId);
     revalidatePath("/admin/bookings");
     return ok("Booking updated");
   } catch {
@@ -271,10 +283,14 @@ export async function upsertGalleryItem(
   const session = await guard("gallery", "write");
   const parsed = galleryAdminSchema.safeParse(input);
   if (!parsed.success) return fail("Invalid gallery item");
+  const embed = sanitizeVideoEmbedUrl(parsed.data.videoUrl);
+  if (parsed.data.type === "VIDEO" && parsed.data.videoUrl && !embed) {
+    return fail("Video URL must be a YouTube or Vimeo https link");
+  }
   const data = {
     title: parsed.data.title,
     image: parsed.data.image,
-    videoUrl: parsed.data.videoUrl || null,
+    videoUrl: embed || null,
     type: parsed.data.type ?? "PHOTO",
     category: parsed.data.category,
     alt: parsed.data.alt || parsed.data.title,
@@ -293,7 +309,7 @@ export async function upsertGalleryItem(
     revalidatePath("/gallery");
     return ok("Gallery item saved");
   } catch (e) {
-    return fail(e instanceof Error ? e.message : "Failed to save");
+    console.error(e); return fail("Failed to save");
   }
 }
 
@@ -338,7 +354,7 @@ export async function upsertTestimonial(
     revalidatePath("/testimonials");
     return ok("Testimonial saved");
   } catch (e) {
-    return fail(e instanceof Error ? e.message : "Failed to save");
+    console.error(e); return fail("Failed to save");
   }
 }
 
@@ -379,7 +395,7 @@ export async function upsertTeamMember(input: z.infer<typeof teamAdminSchema> & 
     revalidatePath("/about");
     return ok("Team member saved");
   } catch (e) {
-    return fail(e instanceof Error ? e.message : "Failed to save");
+    console.error(e); return fail("Failed to save");
   }
 }
 
@@ -398,12 +414,14 @@ export async function deleteTeamMembers(ids: string[]) {
 /* ─── Contacts / Newsletter ─── */
 export async function updateContactStatus(id: string, status: string) {
   const session = await guard("contacts", "write");
+  const parsedStatus = contactStatusSchema.safeParse(status);
+  if (!parsedStatus.success) return fail("Invalid contact status");
   try {
     await prisma.contactMessage.update({
       where: { id },
-      data: { status: status as never },
+      data: { status: parsedStatus.data },
     });
-    await log("UPDATE", "ContactMessage", id, status, session.userId);
+    await log("UPDATE", "ContactMessage", id, parsedStatus.data, session.userId);
     revalidatePath("/admin/contacts");
     return ok("Contact updated");
   } catch {
@@ -491,7 +509,7 @@ export async function upsertUser(input: z.infer<typeof userAdminSchema> & { id?:
     revalidatePath("/admin/users");
     return ok("User saved");
   } catch (e) {
-    return fail(e instanceof Error ? e.message : "Failed to save user");
+    console.error(e); return fail("Failed to save");
   }
 }
 
@@ -512,13 +530,15 @@ export async function deleteUsers(ids: string[]) {
 /* ─── Settings / Social ─── */
 export async function saveSetting(key: string, value: unknown) {
   const session = await guard("settings", "write");
+  const parsedKey = settingKeySchema.safeParse(key);
+  if (!parsedKey.success) return fail("Invalid settings key");
   try {
     await prisma.setting.upsert({
-      where: { key },
+      where: { key: parsedKey.data },
       update: { value: value as object },
-      create: { key, value: value as object },
+      create: { key: parsedKey.data, value: value as object },
     });
-    await log("UPDATE", "Setting", key, undefined, session.userId);
+    await log("UPDATE", "Setting", parsedKey.data, undefined, session.userId);
     revalidatePath("/admin/settings");
     return ok("Settings saved");
   } catch {

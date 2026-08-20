@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { sanitizeVideoEmbedUrl } from "@/lib/video-url";
 
 type Item = {
   id: string;
@@ -30,6 +31,7 @@ export function GalleryClient({ items }: { items: Item[] }) {
   }, [items, category, type]);
 
   const shown = filtered.slice(0, visible);
+  const safeVideoUrl = lightbox ? sanitizeVideoEmbedUrl(lightbox.videoUrl) : null;
 
   return (
     <div>
@@ -123,12 +125,15 @@ export function GalleryClient({ items }: { items: Item[] }) {
             className="relative h-[80vh] w-full max-w-5xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {lightbox.type === "VIDEO" && lightbox.videoUrl ? (
+            {lightbox.type === "VIDEO" && safeVideoUrl ? (
               <iframe
-                src={lightbox.videoUrl}
+                src={safeVideoUrl}
                 className="h-full w-full rounded-xl"
                 title={lightbox.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
+                sandbox="allow-scripts allow-same-origin allow-presentation"
+                referrerPolicy="strict-origin-when-cross-origin"
               />
             ) : (
               <Image

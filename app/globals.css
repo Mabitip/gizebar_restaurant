@@ -76,7 +76,7 @@ h4,
 }
 
 .font-ethiopic {
-  font-family: "Noto Sans Ethiopic", var(--font-inter), sans-serif;
+  font-family: var(--font-ethiopic), "Noto Sans Ethiopic", sans-serif;
 }
 
 .section-padding {

@@ -10,10 +10,35 @@ export default async function AdminUsersPage() {
   const session = await getSession();
   if (!session || !can(session, "users")) redirect("/admin");
 
-  let users: Awaited<ReturnType<typeof prisma.user.findMany>> = [];
+  type SafeUser = {
+    id: string;
+    email: string;
+    name: string;
+    role: "SUPER_ADMIN" | "RESERVATION_MANAGER" | "CONTENT_EDITOR";
+    isActive: boolean;
+    lastLoginAt: Date | null;
+    avatar: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+
+  let users: SafeUser[] = [];
   try {
     if (!(process.env.DATABASE_URL || "").includes("user:password@")) {
-      users = await prisma.user.findMany({ orderBy: { createdAt: "desc" } });
+      users = await prisma.user.findMany({
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          lastLoginAt: true,
+          avatar: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
     }
   } catch {
     users = [];
@@ -28,11 +53,7 @@ export default async function AdminUsersPage() {
         role: "SUPER_ADMIN",
         isActive: true,
         lastLoginAt: null,
-        passwordHash: "",
         avatar: null,
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        passwordChangedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       },

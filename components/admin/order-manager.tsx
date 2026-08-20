@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import type { OrderStatus } from "@prisma/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { updateOrderStatus } from "@/actions/orders";
+import { getActiveOrders, updateOrderStatus } from "@/actions/orders";
 import { formatPrice } from "@/lib/utils";
 
 type OrderModifier = {
@@ -55,6 +55,19 @@ const NEXT_STATUS: Partial<Record<string, string>> = {
   READY: "SERVED",
 };
 
+function normalizeOrder(order: Order): Order {
+  return {
+    ...order,
+    createdAt:
+      typeof order.createdAt === "string"
+        ? order.createdAt
+        : new Date(order.createdAt).toISOString(),
+    diningTable: order.diningTable
+      ? { label: order.diningTable.label, zone: order.diningTable.zone }
+      : null,
+  };
+}
+
 export function OrderManager({
   initialOrders,
   readOnly = false,
@@ -62,18 +75,70 @@ export function OrderManager({
   initialOrders: Order[];
   readOnly?: boolean;
 }) {
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useState(() => initialOrders.map(normalizeOrder));
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    setOrders(initialOrders);
+    setOrders(initialOrders.map(normalizeOrder));
   }, [initialOrders]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const poll = async () => {
+      const res = await getActiveOrders();
+      if (cancelled || !res.success) return;
+
+      const active = res.orders.map((o) =>
+        normalizeOrder({
+          id: o.id,
+          orderNumber: o.orderNumber,
+          tableNumber: o.tableNumber,
+          guestName: o.guestName,
+          guestPhone: o.guestPhone,
+          note: o.note,
+          status: o.status,
+          subtotal: o.subtotal,
+          total: o.total,
+          createdAt: o.createdAt,
+          items: o.items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            lineTotal: item.lineTotal,
+            note: item.note,
+            modifiers: item.modifiers.map((m) => ({
+              id: m.id,
+              name: m.name,
+              type: m.type,
+              priceDelta: m.priceDelta,
+            })),
+          })),
+          diningTable: o.diningTable
+            ? { label: o.diningTable.label, zone: o.diningTable.zone }
+            : null,
+        })
+      );
+
+      setOrders((prev) => {
+        const activeIds = new Set(active.map((o) => o.id));
+        const history = prev.filter(
+          (o) =>
+            ["SERVED", "CANCELLED"].includes(o.status) && !activeIds.has(o.id)
+        );
+        return [...active, ...history];
+      });
+    };
+
     const interval = setInterval(() => {
-      window.location.reload();
+      void poll();
     }, 7000);
-    return () => clearInterval(interval);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   const activeOrders = orders.filter((o) => !["SERVED", "CANCELLED"].includes(o.status));

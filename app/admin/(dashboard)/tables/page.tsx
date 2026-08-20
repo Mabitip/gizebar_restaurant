@@ -28,7 +28,7 @@ export default async function AdminTablesPage() {
       <div>
         <h2 className="font-heading text-3xl">Tables & QR</h2>
         <p className="text-sm text-muted">
-          Generate QR codes for each table. Guests scan to open the Menu page.
+          Generate QR codes for each table. Guests scan to open the order page for that table.
         </p>
       </div>
       <TableManager tables={tables} readOnly={readOnly} />

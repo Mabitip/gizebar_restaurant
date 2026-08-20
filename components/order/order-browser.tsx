@@ -65,6 +65,10 @@ function OrderExperience({
   const drinkCategories = categories.filter((c) => c.type === "drink");
 
   const submitOrder = () => {
+    if (!tableInfo?.qrToken) {
+      toast.error("Scan your table QR code to place an order.");
+      return;
+    }
     const num = parseInt(tableNumber, 10);
     if (!num || num < 1) {
       toast.error("Please enter a valid table number");
@@ -78,7 +82,7 @@ function OrderExperience({
     startTransition(async () => {
       const res = await createOrder({
         tableNumber: num,
-        qrToken: tableInfo?.qrToken || null,
+        qrToken: tableInfo.qrToken,
         guestName: guestName || null,
         guestPhone: guestPhone || null,
         note: orderNote || null,
@@ -134,11 +138,16 @@ function OrderExperience({
           <p className="mt-3 text-muted">
             Browse, customize, and send your order straight to the kitchen.
           </p>
-          {tableInfo && (
+          {tableInfo ? (
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm text-primary">
               Table {tableInfo.number}
               {tableInfo.label ? ` · ${tableInfo.label}` : ""}
               {tableInfo.zone ? ` · ${tableInfo.zone}` : ""}
+            </div>
+          ) : (
+            <div className="mx-auto mt-4 max-w-md rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              Scan the QR code on your table to unlock ordering for that table.
+              You can still browse the menu here.
             </div>
           )}
         </div>
@@ -325,7 +334,14 @@ function OrderExperience({
                   onChange={(e) => setTableNumber(e.target.value)}
                   placeholder="e.g. 12"
                   required
+                  readOnly={!!tableInfo?.qrToken}
+                  className={tableInfo?.qrToken ? "bg-surface" : undefined}
                 />
+                {tableInfo?.qrToken && (
+                  <p className="text-xs text-muted">
+                    Table locked from your QR code.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="guestName">Your name (optional)</Label>

@@ -32,6 +32,10 @@ yarn-error.log*
 .env
 .env*.local
 
+# local uploads (never commit user media)
+/public/uploads/*
+!/public/uploads/.gitkeep
+
 # vercel
 .vercel
 

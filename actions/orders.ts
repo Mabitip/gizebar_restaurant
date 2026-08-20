@@ -1,11 +1,15 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import type { OrderStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { rolesFor } from "@/lib/permissions";
+import { clientIpFromHeaders, rateLimit } from "@/lib/rate-limit";
 import { createOrderSchema } from "@/lib/validations";
+import { resolveTableByToken } from "@/lib/table-token";
 
 function fail(message: string) {
   return { success: false as const, message };
@@ -13,6 +17,20 @@ function fail(message: string) {
 
 function ok<T extends Record<string, unknown>>(message: string, data?: T) {
   return { success: true as const, message, ...data };
+}
+
+const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+  PENDING: "ACCEPTED",
+  ACCEPTED: "PREPARING",
+  PREPARING: "READY",
+  READY: "SERVED",
+};
+
+function isAllowedTransition(from: OrderStatus, to: OrderStatus) {
+  if (to === "CANCELLED") {
+    return from !== "SERVED" && from !== "CANCELLED";
+  }
+  return NEXT_STATUS[from] === to;
 }
 
 async function nextOrderNumber(): Promise<number> {
@@ -23,25 +41,67 @@ async function nextOrderNumber(): Promise<number> {
   return (latest?.orderNumber ?? 1000) + 1;
 }
 
+async function createOrderWithRetry(
+  data: Omit<Prisma.OrderCreateInput, "orderNumber">,
+  attempts = 5
+) {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const orderNumber = await nextOrderNumber();
+      return await prisma.order.create({
+        data: { ...data, orderNumber },
+        include: {
+          items: { include: { modifiers: true } },
+        },
+      });
+    } catch (error) {
+      lastError = error;
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
 export async function createOrder(input: unknown) {
+  const h = await headers();
+  const ip = clientIpFromHeaders(h);
+  if (!rateLimit(`order:${ip}`, 10, 10 * 60_000).success) {
+    return fail("Too many orders. Please wait a few minutes and try again.");
+  }
+
   const parsed = createOrderSchema.safeParse(input);
   if (!parsed.success) return fail("Invalid order data");
 
-  const { tableNumber, qrToken, guestName, guestPhone, note, items } = parsed.data;
+  const { qrToken, guestName, guestPhone, note, items } = parsed.data;
+
+  if (!qrToken?.trim()) {
+    return fail("Please scan your table QR code to place an order.");
+  }
 
   try {
-    let diningTableId: string | null = null;
-    if (qrToken) {
-      const table = await prisma.diningTable.findFirst({
-        where: { qrToken, isActive: true },
-      });
-      if (table) diningTableId = table.id;
+    if (!rateLimit(`order-table:${qrToken}`, 10, 10 * 60_000).success) {
+      return fail("Too many orders from this table. Please wait a few minutes.");
     }
 
+    const table = await resolveTableByToken(qrToken);
+    if (!table) {
+      return fail("Invalid or inactive table QR code. Please rescan or ask staff.");
+    }
+    const diningTableId = table.id;
+    const tableNumber = table.number;
+
     const menuItemIds = items.map((i) => i.menuItemId);
+    const uniqueMenuIds = [...new Set(menuItemIds)];
     const menuItems = await prisma.menuItem.findMany({
       where: {
-        id: { in: menuItemIds },
+        id: { in: uniqueMenuIds },
         status: "PUBLISHED",
         isAvailable: true,
       },
@@ -50,7 +110,7 @@ export async function createOrder(input: unknown) {
       },
     });
 
-    if (menuItems.length !== new Set(menuItemIds).size) {
+    if (menuItems.length !== uniqueMenuIds.length) {
       return fail("Some menu items are unavailable");
     }
 
@@ -58,8 +118,27 @@ export async function createOrder(input: unknown) {
     let subtotal = 0;
 
     const orderItemsData = items.map((item) => {
-      const menuItem = menuMap[item.menuItemId];
-      const modifierTotal = (item.modifiers || []).reduce((sum, m) => sum + m.priceDelta, 0);
+      const menuItem = menuMap[item.menuItemId]!;
+      const modifierById = Object.fromEntries(
+        menuItem.modifiers.map((m) => [m.id, m])
+      );
+
+      const resolvedModifiers = (item.modifiers || []).map((m) => {
+        const dbMod = modifierById[m.modifierId];
+        if (!dbMod) {
+          throw new Error("INVALID_MODIFIER");
+        }
+        return {
+          name: dbMod.name,
+          type: dbMod.type,
+          priceDelta: dbMod.priceDelta,
+        };
+      });
+
+      const modifierTotal = resolvedModifiers.reduce(
+        (sum, m) => sum + m.priceDelta,
+        0
+      );
       const unitPrice = menuItem.price + modifierTotal;
       const lineTotal = unitPrice * item.quantity;
       subtotal += lineTotal;
@@ -71,42 +150,30 @@ export async function createOrder(input: unknown) {
         quantity: item.quantity,
         note: item.note || null,
         lineTotal,
-        modifiers: (item.modifiers || []).map((m) => ({
-          name: m.name,
-          type: m.type,
-          priceDelta: m.priceDelta,
-        })),
+        modifiers: resolvedModifiers,
       };
     });
 
-    const orderNumber = await nextOrderNumber();
-
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        tableNumber,
-        diningTableId,
-        guestName: guestName || null,
-        guestPhone: guestPhone || null,
-        note: note || null,
-        subtotal,
-        total: subtotal,
-        items: {
-          create: orderItemsData.map((item) => ({
-            menuItemId: item.menuItemId,
-            name: item.name,
-            unitPrice: item.unitPrice,
-            quantity: item.quantity,
-            note: item.note,
-            lineTotal: item.lineTotal,
-            modifiers: {
-              create: item.modifiers,
-            },
-          })),
-        },
-      },
-      include: {
-        items: { include: { modifiers: true } },
+    const order = await createOrderWithRetry({
+      tableNumber,
+      diningTable: { connect: { id: diningTableId } },
+      guestName: guestName || null,
+      guestPhone: guestPhone || null,
+      note: note || null,
+      subtotal,
+      total: subtotal,
+      items: {
+        create: orderItemsData.map((item) => ({
+          menuItemId: item.menuItemId,
+          name: item.name,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          note: item.note,
+          lineTotal: item.lineTotal,
+          modifiers: {
+            create: item.modifiers,
+          },
+        })),
       },
     });
 
@@ -118,7 +185,10 @@ export async function createOrder(input: unknown) {
       orderId: order.id,
       orderNumber: order.orderNumber,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "INVALID_MODIFIER") {
+      return fail("Some item options are no longer available. Please customize again.");
+    }
     return fail("Could not place order. Please try again.");
   }
 }
@@ -127,6 +197,16 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   await requireSession(rolesFor("orders", "write"));
 
   try {
+    const existing = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+    if (!existing) return fail("Order not found");
+
+    if (!isAllowedTransition(existing.status, status)) {
+      return fail(`Cannot change status from ${existing.status} to ${status}`);
+    }
+
     await prisma.order.update({
       where: { id: orderId },
       data: { status },
@@ -173,17 +253,5 @@ export async function getAllOrders(limit = 50) {
     return { success: true as const, orders };
   } catch {
     return { success: false as const, orders: [] };
-  }
-}
-
-export async function resolveTableByToken(token: string) {
-  try {
-    const table = await prisma.diningTable.findFirst({
-      where: { qrToken: token, isActive: true },
-    });
-    if (!table) return null;
-    return { id: table.id, number: table.number, label: table.label, zone: table.zone };
-  } catch {
-    return null;
   }
 }

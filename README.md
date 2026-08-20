@@ -42,12 +42,11 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - URL: `/login` (also linked from the site header; `/admin/login` redirects here)
 - Roles: `SUPER_ADMIN` · `RESERVATION_MANAGER` · `CONTENT_EDITOR`
-- Demo credentials (from `.env` / defaults):
-  - Super Admin: `admin@gizebarandrestaurant.com` / `GizeAdmin2024!`
-  - Reservation Manager: `reservations@gizebarandrestaurant.com` / `GizeReserve2024!`
-  - Content Editor: `editor@gizebarandrestaurant.com` / `GizeEditor2024!`
+- Credentials come from environment variables (`ADMIN_EMAIL` / `ADMIN_PASSWORD`, etc.).
+  Never commit real passwords. Copy `.env.example` → `.env` and set strong unique values (12+ characters) before `npm run db:seed`.
+- Optional local-only demo login when the DB is down: set `ALLOW_DEMO_AUTH=true` (ignored in production).
 
-Each role gets a filtered sidebar and permission-gated CRUD. Demo login works without a database in development only.
+Each role gets a filtered sidebar and permission-gated CRUD.
 
 ## Scripts
 

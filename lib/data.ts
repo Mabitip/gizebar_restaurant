@@ -80,11 +80,15 @@ function hasLiveDatabase() {
   return true;
 }
 
+/** After a connection failure, skip Prisma for the rest of this process (e.g. Neon unreachable). */
+let databaseUnreachable = false;
+
 async function tryPrisma<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
-    if (!hasLiveDatabase()) return fallback;
+    if (!hasLiveDatabase() || databaseUnreachable) return fallback;
     return await fn();
   } catch {
+    databaseUnreachable = true;
     return fallback;
   }
 }

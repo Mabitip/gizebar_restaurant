@@ -12,7 +12,7 @@ import {
   regenerateTableQrToken,
   upsertDiningTable,
 } from "@/actions/admin";
-import { qrMenuUrl } from "@/lib/utils";
+import { orderPageUrl, qrMenuUrl } from "@/lib/utils";
 
 type DiningTable = {
   id: string;
@@ -39,7 +39,8 @@ function QrPreview({ url, size = 160 }: { url: string; size?: number }) {
 }
 
 function QrActions({ table }: { table: DiningTable }) {
-  const url = qrMenuUrl();
+  const url = orderPageUrl(table.qrToken);
+  const menuUrl = qrMenuUrl();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pending, startTransition] = useTransition();
 
@@ -74,7 +75,7 @@ function QrActions({ table }: { table: DiningTable }) {
         ${table.label ? `<p>${table.label}</p>` : ""}
         ${table.zone ? `<p>${table.zone}</p>` : ""}
         <img src="${dataUrl}" alt="QR Code" />
-        <p>Scan to view menu</p>
+        <p>Scan to order from this table</p>
         <script>window.onload = () => { window.print(); }</script>
       </body></html>
     `);
@@ -85,7 +86,17 @@ function QrActions({ table }: { table: DiningTable }) {
     <div className="flex flex-col items-center gap-2">
       <canvas ref={canvasRef} className="hidden" />
       <QrPreview url={url} size={120} />
-      <p className="max-w-[140px] truncate text-[10px] text-muted">{url}</p>
+      <p className="max-w-[140px] truncate text-[10px] text-muted" title={url}>
+        {url}
+      </p>
+      <a
+        href={menuUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[10px] text-primary underline-offset-2 hover:underline"
+      >
+        Open menu page
+      </a>
       <div className="flex flex-wrap justify-center gap-1">
         <Button size="sm" variant="secondary" onClick={download}>
           <Download className="mr-1 h-3 w-3" /> PNG

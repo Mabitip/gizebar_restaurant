@@ -13,35 +13,59 @@ const ALLOWED_TYPES = new Set([
   "image/png",
   "image/webp",
   "image/gif",
-  "image/svg+xml",
 ]);
 
-function extFromFile(file: File) {
-  const fromName = path.extname(file.name).toLowerCase();
-  if (fromName && fromName.length <= 5) return fromName;
-  switch (file.type) {
+function detectImageMime(buffer: Buffer): string | null {
+  if (buffer.length < 12) return null;
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    return "image/png";
+  }
+  if (
+    buffer[0] === 0x47 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x38
+  ) {
+    return "image/gif";
+  }
+  if (
+    buffer.toString("ascii", 0, 4) === "RIFF" &&
+    buffer.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+function extFromMime(mime: string) {
+  switch (mime) {
     case "image/png":
       return ".png";
     case "image/webp":
       return ".webp";
     case "image/gif":
       return ".gif";
-    case "image/svg+xml":
-      return ".svg";
     default:
       return ".jpg";
   }
 }
 
-async function saveLocalUpload(file: File) {
-  const buffer = Buffer.from(await file.arrayBuffer());
+async function saveLocalUpload(buffer: Buffer, mime: string, originalName: string) {
   const dir = path.join(process.cwd(), "public", "uploads");
   await mkdir(dir, { recursive: true });
-  const filename = `${Date.now()}-${randomUUID().slice(0, 8)}${extFromFile(file)}`;
+  const filename = `${Date.now()}-${randomUUID().slice(0, 8)}${extFromMime(mime)}`;
   await writeFile(path.join(dir, filename), buffer);
   return {
     url: `/uploads/${filename}`,
-    filename: file.name,
+    filename: originalName,
     width: undefined as number | undefined,
     height: undefined as number | undefined,
   };
@@ -58,18 +82,27 @@ export async function POST(req: NextRequest) {
     const file = form.get("file") as File | null;
 
     if (!file || file.size <= 0) {
-      return NextResponse.json({ message: "Please choose an image file to upload." }, { status: 400 });
+      return NextResponse.json(
+        { message: "Please choose an image file to upload." },
+        { status: 400 }
+      );
     }
 
     if (file.size > 8 * 1024 * 1024) {
       return NextResponse.json({ message: "Image must be under 8MB." }, { status: 400 });
     }
 
-    if (file.type && !ALLOWED_TYPES.has(file.type)) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const detected = detectImageMime(buffer);
+    if (!detected || !ALLOWED_TYPES.has(detected)) {
       return NextResponse.json(
         { message: "Unsupported file type. Use PNG, JPG, WEBP, or GIF." },
         { status: 400 }
       );
+    }
+
+    if (file.type && file.type !== detected && !(file.type === "image/jpg" && detected === "image/jpeg")) {
+      // Client MIME may lie; detected type wins. Reject SVG / mismatched executables already by magic bytes.
     }
 
     let url: string;
@@ -79,14 +112,13 @@ export async function POST(req: NextRequest) {
     let filename = file.name;
 
     if (isCloudinaryConfigured()) {
-      const buffer = Buffer.from(await file.arrayBuffer());
       const uploaded = await uploadImage(buffer, "gize/media");
       url = uploaded.url;
       publicId = uploaded.publicId;
       width = uploaded.width;
       height = uploaded.height;
     } else {
-      const local = await saveLocalUpload(file);
+      const local = await saveLocalUpload(buffer, detected, file.name);
       url = local.url;
       filename = local.filename;
       width = local.width;
@@ -101,7 +133,7 @@ export async function POST(req: NextRequest) {
           filename,
           width,
           height,
-          mimeType: file.type || null,
+          mimeType: detected,
           size: file.size,
           folder: isCloudinaryConfigured() ? "gize/media" : "uploads",
         },
@@ -111,9 +143,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, media: { url, filename } });
     }
   } catch (e) {
-    return NextResponse.json(
-      { message: e instanceof Error ? e.message : "Upload failed" },
-      { status: 500 }
-    );
+    console.error("Upload failed", e);
+    return NextResponse.json({ message: "Upload failed" }, { status: 500 });
   }
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { OrderBrowser } from "@/components/order/order-browser";
 import { getCategories, getOrderMenuItems } from "@/lib/data";
-import { resolveTableByToken } from "@/actions/orders";
+import { resolveTableByToken } from "@/lib/table-token";
 
 export const metadata: Metadata = {
   title: "Order",
@@ -32,7 +32,7 @@ export default async function OrderPage({
               number: tableInfo.number,
               label: tableInfo.label,
               zone: tableInfo.zone,
-              qrToken: token,
+              qrToken: tableInfo.qrToken,
             }
           : null
       }

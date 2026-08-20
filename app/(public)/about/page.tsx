@@ -1,14 +1,38 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { Building2, Calendar, MapPin, Quote } from "lucide-react";
 import { FadeIn, Stagger, StaggerItem } from "@/components/ui/motion";
 import { getTeam } from "@/lib/data";
 import { MEDIA } from "@/lib/media";
-import { SITE } from "@/lib/utils";
+import { ABOUT, SITE } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "About",
   description: `Discover the story behind ${SITE.name} — luxury dining, Ethiopian heritage, and refined hospitality in Bole, Addis Ababa.`,
 };
+
+const COMPANY_FACTS = [
+  {
+    icon: Building2,
+    label: "Company Name",
+    value: ABOUT.companyName,
+  },
+  {
+    icon: Calendar,
+    label: "Established in",
+    value: ABOUT.established,
+  },
+  {
+    icon: MapPin,
+    label: "Address",
+    value: ABOUT.address,
+  },
+  {
+    icon: Quote,
+    label: "Motto",
+    value: `“${ABOUT.motto}”`,
+  },
+] as const;
 
 export default async function AboutPage() {
   const team = await getTeam();
@@ -29,6 +53,9 @@ export default async function AboutPage() {
         <div className="relative z-10 px-4 text-center text-white">
           <p className="eyebrow text-primary">About Us</p>
           <h1 className="mt-3 font-heading text-5xl md:text-6xl">Our Story</h1>
+          <p className="mt-4 font-heading text-xl italic text-primary sm:text-2xl">
+            “{ABOUT.motto}”
+          </p>
         </div>
       </section>
 
@@ -71,6 +98,109 @@ export default async function AboutPage() {
               />
             </div>
           </FadeIn>
+        </div>
+      </section>
+
+      <section className="section-padding bg-surface text-foreground">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <FadeIn className="text-center">
+            <p className="eyebrow">Our Name</p>
+            <h2 className="section-title mt-3 font-ethiopic text-foreground">
+              “{ABOUT.nameStory.title}”
+            </h2>
+          </FadeIn>
+          <div className="mt-12 space-y-12">
+            {ABOUT.nameStory.sections.map((section) => (
+              <FadeIn key={section.heading}>
+                <h3 className="font-ethiopic text-2xl text-primary md:text-3xl">
+                  “{section.heading}”
+                </h3>
+                <div className="mt-5 space-y-4 font-ethiopic text-base leading-loose text-muted md:text-lg">
+                  {section.paragraphs.map((paragraph, index) => (
+                    <p key={`${section.heading}-${index}`}>{paragraph}</p>
+                  ))}
+                </div>
+              </FadeIn>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section-padding bg-background text-foreground">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <FadeIn className="text-center">
+            <p className="eyebrow">Who We Are</p>
+            <h2 className="section-title mt-3 text-foreground">Company information</h2>
+          </FadeIn>
+          <Stagger className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {COMPANY_FACTS.map((fact) => {
+              const Icon = fact.icon;
+              return (
+                <StaggerItem key={fact.label}>
+                  <div className="glass-card h-full rounded-2xl p-6 text-center transition hover:-translate-y-1 hover:shadow-xl">
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-muted">
+                      {fact.label}
+                    </p>
+                    <p className="mt-3 font-heading text-lg leading-snug text-foreground">
+                      {fact.value}
+                    </p>
+                  </div>
+                </StaggerItem>
+              );
+            })}
+          </Stagger>
+        </div>
+      </section>
+
+      <section className="section-padding bg-surface text-foreground">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <FadeIn className="text-center">
+            <p className="eyebrow">Our Purpose</p>
+            <h2 className="section-title mt-3 text-foreground">Vision &amp; Mission</h2>
+          </FadeIn>
+          <div className="mt-12 grid gap-6 md:grid-cols-2">
+            <FadeIn>
+              <div className="glass-card h-full rounded-2xl p-8">
+                <p className="eyebrow">Vision</p>
+                <p className="mt-4 font-heading text-2xl leading-snug text-foreground">
+                  {ABOUT.vision}
+                </p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={0.1}>
+              <div className="glass-card h-full rounded-2xl p-8">
+                <p className="eyebrow">Mission</p>
+                <p className="mt-4 text-base leading-relaxed text-muted">
+                  {ABOUT.mission}
+                </p>
+              </div>
+            </FadeIn>
+          </div>
+        </div>
+      </section>
+
+      <section className="section-padding relative overflow-hidden bg-background text-foreground">
+        <div className="absolute inset-0 luxury-gradient opacity-60" />
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <FadeIn className="text-center">
+            <p className="eyebrow">What Guides Us</p>
+            <h2 className="section-title mt-3 text-foreground">Core Values</h2>
+          </FadeIn>
+          <Stagger className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {ABOUT.values.map((value) => (
+              <StaggerItem key={value.title}>
+                <div className="glass-card h-full rounded-2xl p-6 transition hover:-translate-y-1 hover:shadow-xl">
+                  <h3 className="font-heading text-xl text-foreground">{value.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted">
+                    {value.description}
+                  </p>
+                </div>
+              </StaggerItem>
+            ))}
+          </Stagger>
         </div>
       </section>
 

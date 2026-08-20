@@ -13,11 +13,11 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { NAV_LINKS, SITE, cn } from "@/lib/utils";
+import { flattenNavLinks, SITE, cn } from "@/lib/utils";
 
 const PRIMARY_HREFS = new Set(["/", "/menu", "/reservations", "/drinks"]);
 
-const MORE_LINKS = NAV_LINKS.filter((l) => !PRIMARY_HREFS.has(l.href));
+const MORE_LINKS = flattenNavLinks().filter((l) => !PRIMARY_HREFS.has(l.href));
 
 type Props = {
   authHref?: string;

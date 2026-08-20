@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HERO_IMAGE } from "@/lib/media";
-import { SITE } from "@/lib/utils";
+import { ABOUT, SITE } from "@/lib/utils";
 
 export function HeroSection() {
   return (
@@ -52,7 +52,15 @@ export function HeroSection() {
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.35 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+          className="mt-4 font-heading text-xl italic text-primary sm:text-2xl md:text-3xl"
+        >
+          “{ABOUT.motto}”
+        </motion.p>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.45 }}
           className="mx-auto mt-6 max-w-2xl text-base text-white/80 sm:text-lg"
         >
           Where Ethiopian heritage meets international cuisine, craft cocktails,
@@ -61,7 +69,7 @@ export function HeroSection() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.5 }}
+          transition={{ duration: 0.8, delay: 0.6 }}
           className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
         >
           <Button asChild size="lg">
