@@ -101,19 +101,26 @@ function extFromMime(mime: string) {
 }
 
 async function saveLocalUpload(buffer: Buffer, mime: string, originalName: string, isVideo: boolean) {
-  const dir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(dir, { recursive: true });
-  const filename = `${Date.now()}-${randomUUID().slice(0, 8)}${extFromMime(mime)}`;
-  await writeFile(path.join(dir, filename), buffer);
-  return {
-    url: `/uploads/${filename}`,
-    filename: originalName,
-    publicId: undefined,
-    width: undefined as number | undefined,
-    height: undefined as number | undefined,
-    duration: undefined as number | undefined,
-    resourceType: isVideo ? ("video" as const) : ("image" as const),
-  };
+  try {
+    const dir = path.join(process.cwd(), "public", "uploads");
+    await mkdir(dir, { recursive: true });
+    const filename = `${Date.now()}-${randomUUID().slice(0, 8)}${extFromMime(mime)}`;
+    await writeFile(path.join(dir, filename), buffer);
+    return {
+      url: `/uploads/${filename}`,
+      filename: originalName,
+      publicId: undefined,
+      width: undefined as number | undefined,
+      height: undefined as number | undefined,
+      duration: undefined as number | undefined,
+      resourceType: isVideo ? ("video" as const) : ("image" as const),
+    };
+  } catch (fsErr) {
+    console.error("Local filesystem upload error:", fsErr);
+    throw new Error(
+      "Local storage unavailable on serverless runtime. Cloudinary upload failed or is not configured."
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -172,7 +179,7 @@ export async function POST(req: NextRequest) {
         height = uploadRes.height;
         duration = uploadRes.duration;
       } else {
-        const uploadRes = await uploadImage(buffer, requestedFolder || "gize/images");
+        const uploadRes = await uploadImage(buffer, requestedFolder || "gize/images", ["gize", "image"], mime);
         url = uploadRes.url;
         publicId = uploadRes.publicId;
         width = uploadRes.width;

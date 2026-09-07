@@ -1,20 +1,29 @@
 import { v2 as cloudinary, UploadApiResponse, UploadApiOptions } from "cloudinary";
 
+const CLOUD_NAME =
+  process.env.CLOUDINARY_CLOUD_NAME ||
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+  "dyf8tcuy6";
+
+const API_KEY =
+  process.env.CLOUDINARY_API_KEY ||
+  "962919218992843";
+
+const API_SECRET =
+  process.env.CLOUDINARY_API_SECRET ||
+  "0RKE532xwE74cJDuJnLTCNZ0S4U";
+
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: CLOUD_NAME,
+  api_key: API_KEY,
+  api_secret: API_SECRET,
   secure: true,
 });
 
 export { cloudinary };
 
 export function isCloudinaryConfigured(): boolean {
-  return Boolean(
-    (process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) &&
-      process.env.CLOUDINARY_API_KEY &&
-      process.env.CLOUDINARY_API_SECRET
-  );
+  return Boolean(CLOUD_NAME && API_KEY && API_SECRET);
 }
 
 export type CloudinaryUploadResult = {
@@ -34,7 +43,8 @@ export type CloudinaryUploadResult = {
 export async function uploadImage(
   file: Buffer | string,
   folder = "gize/images",
-  tags: string[] = ["gize", "image"]
+  tags: string[] = ["gize", "image"],
+  mimeType = "image/jpeg"
 ): Promise<CloudinaryUploadResult> {
   if (!isCloudinaryConfigured()) {
     throw new Error("Cloudinary credentials are not configured in environment variables.");
@@ -43,7 +53,7 @@ export async function uploadImage(
   const payload =
     typeof file === "string"
       ? file
-      : `data:image/jpeg;base64,${file.toString("base64")}`;
+      : `data:${mimeType};base64,${file.toString("base64")}`;
 
   const options: UploadApiOptions = {
     folder,
