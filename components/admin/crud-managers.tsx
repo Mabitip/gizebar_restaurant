@@ -175,13 +175,21 @@ export function EventsManager({
           onCancel={() => setOpen(false)}
           onSave={() =>
             start(async () => {
+              if (!form.title.trim()) {
+                toast.error("Event title is required");
+                return;
+              }
+              if (!form.description.trim()) {
+                toast.error("Event description is required");
+                return;
+              }
               const res = await upsertEvent({
                 id: editId,
-                title: form.title,
-                description: form.description,
-                shortDesc: form.shortDesc,
-                category: form.category,
-                startDate: form.startDate,
+                title: form.title.trim(),
+                description: form.description.trim(),
+                shortDesc: form.shortDesc || null,
+                category: form.category || "live-music",
+                startDate: form.startDate || undefined,
                 image: form.image || null,
                 price: form.price || null,
                 capacity: form.capacity ? Number(form.capacity) : null,
@@ -191,41 +199,86 @@ export function EventsManager({
               if (res.success) {
                 toast.success(res.message);
                 setOpen(false);
-              } else toast.error(res.message);
+              } else {
+                toast.error(res.message);
+              }
             })
           }
         >
-          <div className="space-y-2">
-            <Label>Title</Label>
-            <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          </div>
-          <div className="space-y-2">
-            <Label>Category</Label>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Event Title *</Label>
             <Input
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              placeholder="e.g. Saturday Live Jazz & Cocktails"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </div>
+
+          <div className="sm:col-span-2">
+            <ImageUploadField
+              label="Event Banner / Image"
+              value={form.image}
+              onChange={(image) => setForm({ ...form, image })}
+            />
+          </div>
+
           <div className="space-y-2 sm:col-span-2">
-            <Label>Description</Label>
+            <Label>Event Description *</Label>
             <Textarea
+              rows={4}
+              placeholder="Describe the event, performers, atmosphere, special menus, or booking details..."
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
-            <Label>Start</Label>
+            <Label>Category</Label>
+            <select
+              className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+            >
+              <option value="live-music">Live Music & Jazz</option>
+              <option value="birthday">Birthday Celebration</option>
+              <option value="corporate">Corporate & Networking</option>
+              <option value="graduation">Graduation</option>
+              <option value="private-dinner">Private Dinner</option>
+              <option value="wedding">Wedding & Reception</option>
+              <option value="special-night">Special Night</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Start Date & Time (Optional)</Label>
             <Input
               type="datetime-local"
               value={form.startDate}
               onChange={(e) => setForm({ ...form, startDate: e.target.value })}
             />
           </div>
-          <ImageUploadField
-              label="Image"
-              value={form.image}
-              onChange={(image) => setForm({ ...form, image })}
+
+          <div className="space-y-2">
+            <Label>Price / Entry (Optional)</Label>
+            <Input
+              placeholder="e.g. Free Entry, 500 ETB, Reservation Only"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <select
+              className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+            >
+              <option value="PUBLISHED">Published</option>
+              <option value="DRAFT">Draft</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
         </FormShell>
       )}
     </div>

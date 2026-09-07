@@ -23,14 +23,14 @@ export const categorySchema = z.object({
 });
 
 export const eventAdminSchema = z.object({
-  title: z.string().min(2),
-  description: z.string().min(10),
-  shortDesc: z.string().optional().nullable(),
+  title: z.string().min(1, "Title is required"),
+  description: z.string().min(1, "Description is required"),
   image: z.string().optional().nullable(),
-  category: z.string().min(2),
-  startDate: z.string().min(1),
+  shortDesc: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
+  startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
-  location: z.string().optional(),
+  location: z.string().optional().nullable(),
   price: z.string().optional().nullable(),
   capacity: z.number().int().optional().nullable(),
   isFeatured: z.boolean().optional(),

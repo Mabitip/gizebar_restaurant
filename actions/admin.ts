@@ -204,15 +204,44 @@ export async function deleteReservations(ids: string[]) {
 export async function upsertEvent(input: z.infer<typeof eventAdminSchema> & { id?: string }) {
   const session = await guard("events", "write");
   const parsed = eventAdminSchema.safeParse(input);
-  if (!parsed.success) return fail("Invalid event data");
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]?.message || "Invalid event data";
+    return fail(issue);
+  }
+
+  const baseSlug = slugify(parsed.data.title) || `event-${Date.now()}`;
+  let slug = baseSlug;
+
+  try {
+    const existing = await prisma.event.findFirst({
+      where: {
+        slug,
+        ...(input.id ? { id: { not: input.id } } : {}),
+      },
+    });
+    if (existing) {
+      slug = `${baseSlug}-${Date.now().toString().slice(-4)}`;
+    }
+  } catch {
+    // ignore
+  }
+
+  let startParsed = new Date();
+  if (parsed.data.startDate) {
+    const d = new Date(parsed.data.startDate);
+    if (!isNaN(d.getTime())) {
+      startParsed = d;
+    }
+  }
+
   const data = {
     title: parsed.data.title,
-    slug: slugify(parsed.data.title),
+    slug,
     description: parsed.data.description,
     shortDesc: parsed.data.shortDesc || null,
     image: parsed.data.image || null,
-    category: parsed.data.category,
-    startDate: new Date(parsed.data.startDate),
+    category: parsed.data.category || "live-music",
+    startDate: startParsed,
     endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
     location: parsed.data.location || "Gize Bar & Restaurant",
     price: parsed.data.price || null,
@@ -220,6 +249,7 @@ export async function upsertEvent(input: z.infer<typeof eventAdminSchema> & { id
     isFeatured: parsed.data.isFeatured ?? false,
     status: parsed.data.status ?? "PUBLISHED",
   };
+
   try {
     if (input.id) {
       await prisma.event.update({ where: { id: input.id }, data });
@@ -230,9 +260,10 @@ export async function upsertEvent(input: z.infer<typeof eventAdminSchema> & { id
     }
     revalidatePath("/admin/events");
     revalidatePath("/events");
-    return ok("Event saved");
+    return ok("Event saved successfully");
   } catch (e) {
-    console.error(e); return fail("Failed to save");
+    console.error("Save event failed:", e);
+    return fail("Failed to save event.");
   }
 }
 
