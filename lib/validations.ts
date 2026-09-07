@@ -46,9 +46,11 @@ const videoUrlSchema = z
       if (!val) return true;
       try {
         const url = new URL(val);
-        if (url.protocol !== "https:") return false;
+        if (url.protocol !== "https:" && url.protocol !== "http:") return false;
         const host = url.hostname.toLowerCase();
         return (
+          host === "res.cloudinary.com" ||
+          host.includes("cloudinary") ||
           host === "www.youtube.com" ||
           host === "youtube.com" ||
           host === "www.youtube-nocookie.com" ||
@@ -56,13 +58,16 @@ const videoUrlSchema = z
           host === "youtu.be" ||
           host === "player.vimeo.com" ||
           host === "vimeo.com" ||
-          host === "www.vimeo.com"
+          host === "www.vimeo.com" ||
+          url.pathname.endsWith(".mp4") ||
+          url.pathname.endsWith(".webm") ||
+          url.pathname.endsWith(".mov")
         );
       } catch {
         return false;
       }
     },
-    { message: "Video URL must be a YouTube or Vimeo https link" }
+    { message: "Video URL must be a Cloudinary, MP4, YouTube, or Vimeo link" }
   );
 
 export const galleryAdminSchema = z.object({
@@ -207,7 +212,7 @@ export const orderItemInputSchema = z.object({
 
 export const createOrderSchema = z.object({
   tableNumber: z.number().int().min(1).max(999),
-  qrToken: z.string().min(8).max(128),
+  qrToken: z.string().max(128).optional().nullable(),
   guestName: z.string().max(100).optional().nullable(),
   guestPhone: z.string().max(20).optional().nullable(),
   note: z.string().max(500).optional().nullable(),

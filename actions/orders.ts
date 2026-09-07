@@ -79,23 +79,32 @@ export async function createOrder(input: unknown) {
   const parsed = createOrderSchema.safeParse(input);
   if (!parsed.success) return fail("Invalid order data");
 
-  const { qrToken, guestName, guestPhone, note, items } = parsed.data;
-
-  if (!qrToken?.trim()) {
-    return fail("Please scan your table QR code to place an order.");
-  }
+  const { qrToken, tableNumber: inputTableNumber, guestName, guestPhone, note, items } = parsed.data;
 
   try {
-    if (!rateLimit(`order-table:${qrToken}`, 10, 10 * 60_000).success) {
-      return fail("Too many orders from this table. Please wait a few minutes.");
+    let diningTableId: string | undefined;
+    let tableNumber = inputTableNumber;
+
+    if (qrToken && qrToken.trim() && qrToken !== "universal" && qrToken !== "master") {
+      const table = await resolveTableByToken(qrToken);
+      if (table) {
+        diningTableId = table.id;
+        tableNumber = table.number;
+      }
     }
 
-    const table = await resolveTableByToken(qrToken);
-    if (!table) {
-      return fail("Invalid or inactive table QR code. Please rescan or ask staff.");
+    if (!diningTableId && tableNumber) {
+      const table = await prisma.diningTable.findFirst({
+        where: { number: tableNumber, isActive: true },
+      });
+      if (table) {
+        diningTableId = table.id;
+      }
     }
-    const diningTableId = table.id;
-    const tableNumber = table.number;
+
+    if (!rateLimit(`order-table:${tableNumber || ip}`, 15, 10 * 60_000).success) {
+      return fail("Too many orders from this table. Please wait a few minutes.");
+    }
 
     const menuItemIds = items.map((i) => i.menuItemId);
     const uniqueMenuIds = [...new Set(menuItemIds)];

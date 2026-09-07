@@ -81,7 +81,11 @@ export function ReservationForm() {
           />
         </Field>
         <Field label="Date" error={form.formState.errors.date?.message}>
-          <Input type="date" {...form.register("date")} />
+          <Input
+            type="date"
+            min={new Date().toISOString().slice(0, 10)}
+            {...form.register("date")}
+          />
         </Field>
         <Field label="Time" error={form.formState.errors.time?.message}>
           <select

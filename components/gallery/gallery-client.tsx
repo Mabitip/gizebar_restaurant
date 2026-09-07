@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { X } from "lucide-react";
-import { sanitizeVideoEmbedUrl } from "@/lib/video-url";
+import { Play, Video as VideoIcon, X } from "lucide-react";
+import { isDirectVideoUrl, sanitizeVideoEmbedUrl } from "@/lib/video-url";
 
 type Item = {
   id: string;
@@ -31,7 +31,8 @@ export function GalleryClient({ items }: { items: Item[] }) {
   }, [items, category, type]);
 
   const shown = filtered.slice(0, visible);
-  const safeVideoUrl = lightbox ? sanitizeVideoEmbedUrl(lightbox.videoUrl) : null;
+  const safeVideoUrl = lightbox?.videoUrl ? sanitizeVideoEmbedUrl(lightbox.videoUrl) : null;
+  const isDirect = safeVideoUrl ? isDirectVideoUrl(safeVideoUrl) : false;
 
   return (
     <div>
@@ -44,8 +45,8 @@ export function GalleryClient({ items }: { items: Item[] }) {
               setCategory(c);
               setVisible(8);
             }}
-            className={`rounded-full px-4 py-2 text-sm capitalize ${
-              category === c ? "bg-primary text-white" : "bg-foreground/5 text-foreground"
+            className={`rounded-full px-4 py-2 text-sm capitalize transition ${
+              category === c ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-foreground/5 text-foreground hover:bg-foreground/10"
             }`}
           >
             {c}
@@ -61,8 +62,8 @@ export function GalleryClient({ items }: { items: Item[] }) {
               setType(t);
               setVisible(8);
             }}
-            className={`rounded-full px-4 py-2 text-xs uppercase tracking-wider ${
-              type === t ? "bg-foreground text-background" : "bg-foreground/5 text-foreground"
+            className={`rounded-full px-4 py-2 text-xs uppercase tracking-wider transition ${
+              type === t ? "bg-foreground text-background" : "bg-foreground/5 text-foreground hover:bg-foreground/10"
             }`}
           >
             {t === "all" ? "All Media" : t === "PHOTO" ? "Photos" : "Videos"}
@@ -75,18 +76,33 @@ export function GalleryClient({ items }: { items: Item[] }) {
           <button
             key={item.id}
             type="button"
-            className="mb-4 block w-full break-inside-avoid overflow-hidden rounded-2xl"
+            className="group relative mb-4 block w-full break-inside-avoid overflow-hidden rounded-2xl bg-surface text-left shadow-sm transition hover:shadow-lg"
             onClick={() => setLightbox(item)}
           >
-            <div className="relative aspect-[4/5] w-full">
+            <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
               <Image
                 src={item.image}
                 alt={item.title}
                 fill
-                className="object-cover transition hover:scale-105"
+                className="object-cover transition duration-300 group-hover:scale-105"
                 sizes="(max-width:768px) 100vw, 33vw"
                 loading="lazy"
               />
+              {item.type === "VIDEO" && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition group-hover:bg-black/40">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/90 text-white shadow-lg backdrop-blur-sm transition group-hover:scale-110">
+                    <Play className="h-5 w-5 fill-current ml-0.5" />
+                  </div>
+                  <span className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-md">
+                    <VideoIcon className="h-3 w-3" />
+                    Video
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="p-3">
+              <p className="font-medium text-sm text-foreground truncate">{item.title}</p>
+              <p className="text-xs text-muted capitalize">{item.category}</p>
             </div>
           </button>
         ))}
@@ -96,7 +112,7 @@ export function GalleryClient({ items }: { items: Item[] }) {
         <div className="mt-10 text-center">
           <button
             type="button"
-            className="rounded-full bg-primary px-8 py-3 text-white"
+            className="rounded-full bg-primary px-8 py-3 text-white font-medium shadow-md shadow-primary/20 hover:bg-primary/90 transition"
             onClick={() => setVisible((v) => v + 6)}
           >
             Load More
@@ -106,7 +122,7 @@ export function GalleryClient({ items }: { items: Item[] }) {
 
       {lightbox && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label={lightbox.title}
@@ -115,34 +131,51 @@ export function GalleryClient({ items }: { items: Item[] }) {
         >
           <button
             type="button"
-            className="absolute right-6 top-6 text-white"
+            className="absolute right-6 top-6 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition"
             aria-label="Close lightbox"
             onClick={() => setLightbox(null)}
           >
-            <X className="h-8 w-8" />
+            <X className="h-6 w-6" />
           </button>
           <div
-            className="relative h-[80vh] w-full max-w-5xl"
+            className="relative h-[80vh] w-full max-w-5xl flex flex-col items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             {lightbox.type === "VIDEO" && safeVideoUrl ? (
-              <iframe
-                src={safeVideoUrl}
-                className="h-full w-full rounded-xl"
-                title={lightbox.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                sandbox="allow-scripts allow-same-origin allow-presentation"
-                referrerPolicy="strict-origin-when-cross-origin"
-              />
+              isDirect ? (
+                <video
+                  src={safeVideoUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="h-full w-full max-h-[75vh] rounded-2xl object-contain shadow-2xl bg-black"
+                />
+              ) : (
+                <iframe
+                  src={safeVideoUrl}
+                  className="h-full w-full max-h-[75vh] rounded-2xl shadow-2xl border border-white/10"
+                  title={lightbox.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  sandbox="allow-scripts allow-same-origin allow-presentation"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
+              )
             ) : (
-              <Image
-                src={lightbox.image}
-                alt={lightbox.title}
-                fill
-                className="object-contain"
-              />
+              <div className="relative h-full w-full">
+                <Image
+                  src={lightbox.image}
+                  alt={lightbox.title}
+                  fill
+                  className="object-contain"
+                  sizes="100vw"
+                  priority
+                />
+              </div>
             )}
+            <p className="mt-3 text-center text-sm font-medium text-white/90">
+              {lightbox.title}
+            </p>
           </div>
         </div>
       )}

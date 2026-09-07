@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DataTable, StatusBadge, type DataTableColumn } from "@/components/admin/data-table";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
+import { VideoUploadField } from "@/components/admin/video-upload-field";
 import {
   deleteEvents,
   deleteUsers,
@@ -386,6 +387,7 @@ export function GalleryManager({
     id: string;
     title: string;
     image: string;
+    videoUrl?: string | null;
     category: string;
     type: string;
     status: string;
@@ -399,6 +401,7 @@ export function GalleryManager({
   const [form, setForm] = useState({
     title: "",
     image: "",
+    videoUrl: "",
     category: "ambiance",
     type: "PHOTO",
     status: "PUBLISHED",
@@ -412,7 +415,17 @@ export function GalleryManager({
         columns={[
           { key: "title", header: "Title", sortable: true },
           { key: "category", header: "Category", sortable: true },
-          { key: "type", header: "Type" },
+          {
+            key: "type",
+            header: "Type",
+            render: (r) => (
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                r.type === "VIDEO" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"
+              }`}>
+                {r.type}
+              </span>
+            ),
+          },
           { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
           {
             key: "actions",
@@ -427,6 +440,7 @@ export function GalleryManager({
                   setForm({
                     title: r.title,
                     image: r.image,
+                    videoUrl: r.videoUrl || "",
                     category: r.category,
                     type: r.type,
                     status: r.status,
@@ -455,6 +469,7 @@ export function GalleryManager({
               setForm({
                 title: "",
                 image: "",
+                videoUrl: "",
                 category: "ambiance",
                 type: "PHOTO",
                 status: "PUBLISHED",
@@ -477,6 +492,7 @@ export function GalleryManager({
                 id: editId,
                 title: form.title,
                 image: form.image,
+                videoUrl: form.type === "VIDEO" ? (form.videoUrl || undefined) : undefined,
                 category: form.category,
                 type: form.type as "PHOTO" | "VIDEO",
                 status: form.status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
@@ -495,16 +511,59 @@ export function GalleryManager({
           </div>
           <div className="space-y-2">
             <Label>Category</Label>
-            <Input
+            <select
+              className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
-            />
+            >
+              <option value="ambiance">Ambiance</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="food">Food</option>
+              <option value="drinks">Drinks</option>
+              <option value="events">Events</option>
+            </select>
           </div>
-          <ImageUploadField
-              label="Image"
+          <div className="space-y-2">
+            <Label>Media Type</Label>
+            <select
+              className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+            >
+              <option value="PHOTO">Photo</option>
+              <option value="VIDEO">Video</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <select
+              className="flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+            >
+              <option value="PUBLISHED">Published</option>
+              <option value="DRAFT">Draft</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
+
+          <div className="sm:col-span-2">
+            <ImageUploadField
+              label={form.type === "VIDEO" ? "Cover / Poster Image" : "Image"}
               value={form.image}
               onChange={(image) => setForm({ ...form, image })}
             />
+          </div>
+
+          {form.type === "VIDEO" && (
+            <div className="sm:col-span-2">
+              <VideoUploadField
+                label="Video File or Link"
+                value={form.videoUrl}
+                onChange={(videoUrl) => setForm({ ...form, videoUrl })}
+              />
+            </div>
+          )}
         </FormShell>
       )}
     </div>

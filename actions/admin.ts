@@ -24,6 +24,7 @@ import {
   userAdminSchema,
 } from "@/lib/validations";
 import { sanitizeVideoEmbedUrl } from "@/lib/video-url";
+import { deleteMedia } from "@/lib/cloudinary";
 import { z } from "zod";
 
 async function guard(resource: Resource, action: "read" | "write" | "delete" | "manage" = "write") {
@@ -285,7 +286,7 @@ export async function upsertGalleryItem(
   if (!parsed.success) return fail("Invalid gallery item");
   const embed = sanitizeVideoEmbedUrl(parsed.data.videoUrl);
   if (parsed.data.type === "VIDEO" && parsed.data.videoUrl && !embed) {
-    return fail("Video URL must be a YouTube or Vimeo https link");
+    return fail("Video URL must be a valid Cloudinary, MP4, YouTube, or Vimeo link");
   }
   const data = {
     title: parsed.data.title,
@@ -692,3 +693,46 @@ export async function deleteMenuModifiers(ids: string[]) {
     return fail("Delete failed");
   }
 }
+
+/* ─── Media Library ─── */
+export async function deleteMediaItem(id: string) {
+  const session = await guard("media", "delete");
+  try {
+    const item = await prisma.media.findUnique({ where: { id } });
+    if (!item) return fail("Media not found");
+
+    if (item.publicId) {
+      const isVideo = item.mimeType?.startsWith("video/") || item.url.includes("/video/upload/");
+      await deleteMedia(item.publicId, isVideo ? "video" : "image");
+    }
+
+    await prisma.media.delete({ where: { id } });
+    await log("DELETE", "Media", id, item.filename || item.url, session.userId);
+    revalidatePath("/admin/media");
+    return ok("Media deleted");
+  } catch (e) {
+    console.error(e);
+    return fail("Failed to delete media item");
+  }
+}
+
+export async function bulkDeleteMedia(ids: string[]) {
+  const session = await guard("media", "delete");
+  try {
+    const items = await prisma.media.findMany({ where: { id: { in: ids } } });
+    for (const item of items) {
+      if (item.publicId) {
+        const isVideo = item.mimeType?.startsWith("video/") || item.url.includes("/video/upload/");
+        await deleteMedia(item.publicId, isVideo ? "video" : "image");
+      }
+    }
+    await prisma.media.deleteMany({ where: { id: { in: ids } } });
+    await log("BULK_DELETE", "Media", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/media");
+    return ok(`Deleted ${ids.length} media item(s)`);
+  } catch (e) {
+    console.error(e);
+    return fail("Failed to delete media items");
+  }
+}
+

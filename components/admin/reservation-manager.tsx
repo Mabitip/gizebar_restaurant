@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { deleteReservations, updateReservationStatus } from "@/actions/admin";
+import { getRecentReservations } from "@/actions/reservations";
 
 type Reservation = {
   id: string;
@@ -19,18 +20,66 @@ type Reservation = {
 
 const statuses = ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"];
 
+function normalizeReservation(r: Reservation): Reservation {
+  return {
+    ...r,
+    date: typeof r.date === "string" ? r.date : new Date(r.date).toISOString(),
+  };
+}
+
 export function ReservationManager({
-  reservations,
+  reservations: initialReservations,
   readOnly = false,
 }: {
   reservations: Reservation[];
   readOnly?: boolean;
 }) {
+  const [reservations, setReservations] = useState(() =>
+    initialReservations.map(normalizeReservation)
+  );
   const [selected, setSelected] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
+  useEffect(() => {
+    setReservations(initialReservations.map(normalizeReservation));
+  }, [initialReservations]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const poll = async () => {
+      const res = await getRecentReservations(100);
+      if (cancelled || !res.success) return;
+      setReservations(
+        res.reservations.map((r) =>
+          normalizeReservation({
+            id: r.id,
+            name: r.name,
+            phone: r.phone,
+            email: r.email,
+            guests: r.guests,
+            date: r.date,
+            time: r.time,
+            specialRequests: r.specialRequests,
+            status: r.status,
+          })
+        )
+      );
+    };
+
+    const interval = setInterval(() => {
+      void poll();
+    }, 7000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted">Auto-refreshes every 7 seconds</p>
       {!readOnly && (
         <div className="flex gap-2">
           <Button
@@ -39,9 +88,11 @@ export function ReservationManager({
             disabled={!selected.length || pending}
             onClick={() =>
               startTransition(async () => {
-                const res = await deleteReservations(selected);
+                const ids = [...selected];
+                const res = await deleteReservations(ids);
                 if (res.success) {
                   toast.success(res.message);
+                  setReservations((prev) => prev.filter((r) => !ids.includes(r.id)));
                   setSelected([]);
                 } else toast.error(res.message);
               })
@@ -107,13 +158,29 @@ export function ReservationManager({
                     <select
                       className="rounded-lg border border-border px-2 py-1"
                       value={r.status}
-                      onChange={(e) =>
+                      disabled={pending}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        const prevStatus = r.status;
+                        setReservations((list) =>
+                          list.map((row) =>
+                            row.id === r.id ? { ...row, status: next } : row
+                          )
+                        );
                         startTransition(async () => {
-                          const res = await updateReservationStatus(r.id, e.target.value);
-                          if (res.success) toast.success(res.message);
-                          else toast.error(res.message);
-                        })
-                      }
+                          const res = await updateReservationStatus(r.id, next);
+                          if (res.success) {
+                            toast.success(res.message);
+                          } else {
+                            toast.error(res.message);
+                            setReservations((list) =>
+                              list.map((row) =>
+                                row.id === r.id ? { ...row, status: prevStatus } : row
+                              )
+                            );
+                          }
+                        });
+                      }}
                     >
                       {statuses.map((s) => (
                         <option key={s} value={s}>

@@ -65,13 +65,9 @@ function OrderExperience({
   const drinkCategories = categories.filter((c) => c.type === "drink");
 
   const submitOrder = () => {
-    if (!tableInfo?.qrToken) {
-      toast.error("Scan your table QR code to place an order.");
-      return;
-    }
     const num = parseInt(tableNumber, 10);
     if (!num || num < 1) {
-      toast.error("Please enter a valid table number");
+      toast.error("Please enter your table number");
       return;
     }
     if (!cartItems.length) {
@@ -82,7 +78,7 @@ function OrderExperience({
     startTransition(async () => {
       const res = await createOrder({
         tableNumber: num,
-        qrToken: tableInfo.qrToken,
+        qrToken: tableInfo?.qrToken || "universal",
         guestName: guestName || null,
         guestPhone: guestPhone || null,
         note: orderNote || null,

@@ -1,7 +1,10 @@
 "use server";
 
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/auth";
+import { rolesFor } from "@/lib/permissions";
 import { clientIpFromHeaders, rateLimit } from "@/lib/rate-limit";
 import { reservationSchema, type ReservationInput } from "@/lib/validations";
 
@@ -53,6 +56,9 @@ export async function createReservation(input: ReservationInput) {
       })
       .catch(() => undefined);
 
+    revalidatePath("/admin/reservations");
+    revalidatePath("/admin");
+
     return {
       success: true,
       message:
@@ -73,5 +79,19 @@ export async function createReservation(input: ReservationInput) {
       success: false,
       message: "Could not submit your reservation. Please try again or call us.",
     };
+  }
+}
+
+export async function getRecentReservations(limit = 100) {
+  await requireSession(rolesFor("reservations", "read"));
+
+  try {
+    const reservations = await prisma.reservation.findMany({
+      take: limit,
+      orderBy: { createdAt: "desc" },
+    });
+    return { success: true as const, reservations };
+  } catch {
+    return { success: false as const, reservations: [] };
   }
 }
