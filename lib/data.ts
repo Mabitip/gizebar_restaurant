@@ -237,10 +237,21 @@ export async function getEvents() {
 
   return tryPrisma(async () => {
     const { prisma } = await import("@/lib/prisma");
-    const events = await prisma.event.findMany({
-      where: { status: "PUBLISHED", startDate: { gte: new Date() } },
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    let events = await prisma.event.findMany({
+      where: { status: "PUBLISHED", startDate: { gte: startOfToday } },
       orderBy: { startDate: "asc" },
     });
+
+    if (!events.length) {
+      events = await prisma.event.findMany({
+        where: { status: "PUBLISHED" },
+        orderBy: { startDate: "desc" },
+      });
+    }
+
     return events.length ? events : fallback;
   }, fallback);
 }

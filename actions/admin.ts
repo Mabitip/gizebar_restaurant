@@ -251,7 +251,7 @@ export async function upsertEvent(input: z.infer<typeof eventAdminSchema> & { id
   };
 
   try {
-    if (input.id) {
+    if (input.id && !input.id.startsWith("seed-")) {
       await prisma.event.update({ where: { id: input.id }, data });
       await log("UPDATE", "Event", input.id, data.title, session.userId);
     } else {
@@ -270,13 +270,22 @@ export async function upsertEvent(input: z.infer<typeof eventAdminSchema> & { id
 export async function deleteEvents(ids: string[]) {
   const session = await guard("events", "delete");
   try {
-    await prisma.event.deleteMany({ where: { id: { in: ids } } });
-    await log("DELETE", "Event", ids.join(","), undefined, session.userId);
+    const realIds = ids.filter((id) => !id.startsWith("seed-"));
+    if (realIds.length > 0) {
+      await prisma.event.deleteMany({ where: { id: { in: realIds } } });
+      await log("DELETE", "Event", realIds.join(","), undefined, session.userId);
+    }
     revalidatePath("/admin/events");
-    return ok("Deleted");
-  } catch {
+    revalidatePath("/events");
+    return ok("Event deleted successfully");
+  } catch (e) {
+    console.error("Delete event failed:", e);
     return fail("Delete failed");
   }
+}
+
+export async function deleteEvent(id: string) {
+  return deleteEvents([id]);
 }
 
 export async function updateEventBookingStatus(id: string, status: string) {

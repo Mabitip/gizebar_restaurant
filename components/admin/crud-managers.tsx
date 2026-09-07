@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
+import { Pencil, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,42 +94,102 @@ export function EventsManager({
   });
 
   const columns: DataTableColumn<(typeof events)[0]>[] = [
-    { key: "title", header: "Title", sortable: true },
-    { key: "category", header: "Category", sortable: true },
+    {
+      key: "image",
+      header: "Banner",
+      render: (r) => (
+        <div className="relative h-10 w-16 overflow-hidden rounded-lg border border-border bg-muted/20">
+          {r.image ? (
+            <Image src={r.image} alt={r.title} fill className="object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[10px] text-muted">
+              No Image
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "title",
+      header: "Title",
+      sortable: true,
+      render: (r) => (
+        <div>
+          <div className="font-medium text-foreground">{r.title}</div>
+          {r.shortDesc && <div className="text-xs text-muted line-clamp-1">{r.shortDesc}</div>}
+        </div>
+      ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      sortable: true,
+      render: (r) => (
+        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary capitalize">
+          {r.category.replace("-", " ")}
+        </span>
+      ),
+    },
     {
       key: "startDate",
-      header: "Starts",
+      header: "Date & Time",
       sortable: true,
       getValue: (r) => new Date(r.startDate).toISOString(),
-      render: (r) => new Date(r.startDate).toLocaleString(),
+      render: (r) => (
+        <div className="text-xs">
+          <div className="font-medium">{new Date(r.startDate).toLocaleDateString()}</div>
+          <div className="text-muted">{new Date(r.startDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+        </div>
+      ),
     },
     { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
     {
       key: "actions",
-      header: "",
+      header: "Actions",
       render: (r) => (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setEditId(r.id);
-            setOpen(true);
-            setForm({
-              title: r.title,
-              description: r.description,
-              shortDesc: r.shortDesc || "",
-              category: r.category,
-              startDate: new Date(r.startDate).toISOString().slice(0, 16),
-              image: r.image || "",
-              price: r.price || "",
-              capacity: r.capacity?.toString() || "",
-              isFeatured: r.isFeatured,
-              status: r.status,
-            });
-          }}
-        >
-          Edit
-        </Button>
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1 px-2.5 text-xs"
+            onClick={() => {
+              setEditId(r.id);
+              setOpen(true);
+              setForm({
+                title: r.title,
+                description: r.description,
+                shortDesc: r.shortDesc || "",
+                category: r.category,
+                startDate: new Date(r.startDate).toISOString().slice(0, 16),
+                image: r.image || "",
+                price: r.price || "",
+                capacity: r.capacity?.toString() || "",
+                isFeatured: r.isFeatured,
+                status: r.status,
+              });
+            }}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            <span>Edit</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            disabled={pending}
+            onClick={() => {
+              if (confirm(`Are you sure you want to delete event "${r.title}"?`)) {
+                start(async () => {
+                  const res = await deleteEvents([r.id]);
+                  if (res.success) toast.success(res.message);
+                  else toast.error(res.message);
+                });
+              }
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
