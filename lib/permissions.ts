@@ -14,6 +14,7 @@ export type Resource =
   | "newsletter"
   | "menu"
   | "categories"
+  | "catering"
   | "events"
   | "gallery"
   | "team"
@@ -46,6 +47,7 @@ const MATRIX: Record<Resource, Rule> = {
   newsletter: { read: OPS, write: OPS, delete: OPS, manage: OPS },
   menu: { read: CONTENT, write: CONTENT, delete: CONTENT, manage: CONTENT },
   categories: { read: CONTENT, write: CONTENT, delete: CONTENT, manage: CONTENT },
+  catering: { read: CONTENT, write: CONTENT, delete: CONTENT, manage: CONTENT },
   events: { read: CONTENT, write: CONTENT, delete: CONTENT, manage: CONTENT },
   gallery: { read: CONTENT, write: CONTENT, delete: CONTENT, manage: CONTENT },
   team: { read: CONTENT, write: CONTENT, delete: CONTENT, manage: CONTENT },
@@ -103,6 +105,7 @@ export type NavItem = {
     | "dashboard"
     | "menu"
     | "categories"
+    | "catering"
     | "reservations"
     | "events"
     | "bookings"
@@ -123,6 +126,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/admin", label: "Overview", resource: "overview", icon: "dashboard" },
   { href: "/admin/menu", label: "Menu", resource: "menu", icon: "menu" },
   { href: "/admin/categories", label: "Categories", resource: "categories", icon: "categories" },
+  { href: "/admin/catering", label: "Catering Packages", resource: "catering", icon: "catering" },
   { href: "/admin/reservations", label: "Reservations", resource: "reservations", icon: "reservations" },
   { href: "/admin/orders", label: "Orders", resource: "orders", icon: "orders" },
   { href: "/admin/tables", label: "Tables & QR", resource: "tables", icon: "tables" },
@@ -157,6 +161,7 @@ export function resourceForPath(pathname: string): Resource | null {
     ["/admin/newsletter", "newsletter"],
     ["/admin/menu", "menu"],
     ["/admin/categories", "categories"],
+    ["/admin/catering", "catering"],
     ["/admin/events", "events"],
     ["/admin/gallery", "gallery"],
     ["/admin/team", "team"],

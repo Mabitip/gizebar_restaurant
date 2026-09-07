@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/gallery",
     "/events",
     "/reservations",
+    "/catering",
     "/services",
     "/services/catering",
     "/testimonials",

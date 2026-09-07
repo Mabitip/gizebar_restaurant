@@ -159,15 +159,14 @@ export const NAV_LINKS: readonly NavLink[] = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/menu", label: "Menu" },
-  { href: "/drinks", label: "Drinks" },
+  { href: "/catering", label: "Catering" },
   { href: "/gallery", label: "Gallery" },
   { href: "/events", label: "Events" },
-  { href: "/reservations", label: "Reservations" },
   {
     href: "/services",
     label: "Services",
     children: [
-      { href: "/services/catering", label: "Catering" },
+      { href: "/catering", label: "Catering Packages" },
       { href: "/testimonials", label: "Testimonials" },
     ],
   },

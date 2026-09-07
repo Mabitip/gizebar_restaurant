@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   BarChart3,
   CalendarDays,
+  ChefHat,
   FolderTree,
   GalleryHorizontalEnd,
   ImageIcon,
@@ -32,6 +33,7 @@ const ICONS: Record<NavItem["icon"], React.ComponentType<{ className?: string }>
   dashboard: LayoutDashboard,
   menu: UtensilsCrossed,
   categories: FolderTree,
+  catering: ChefHat,
   reservations: CalendarDays,
   events: PartyPopper,
   bookings: Ticket,

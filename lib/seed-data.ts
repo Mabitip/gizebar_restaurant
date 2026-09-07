@@ -656,3 +656,91 @@ export const STATS = [
   { label: "Happy Guests", value: 25000 },
   { label: "Events Hosted", value: 500 },
 ];
+
+export type CateringPackage = {
+  id: string;
+  name: string;
+  slug: string;
+  tagline: string;
+  price: string;
+  guests: string;
+  minGuests?: number;
+  maxGuests?: number;
+  description?: string;
+  image?: string;
+  featured: boolean;
+  highlights: string[];
+  status: "PUBLISHED" | "DRAFT" | "ARCHIVED";
+  sortOrder: number;
+};
+
+export const SEED_CATERING_PACKAGES: CateringPackage[] = [
+  {
+    id: "pkg-essential",
+    name: "Essential Package",
+    slug: "essential-package",
+    tagline: "Refined simplicity for intimate gatherings",
+    price: "From 450 ETB / person",
+    guests: "20 – 60 guests",
+    minGuests: 20,
+    maxGuests: 60,
+    description:
+      "A complete dining experience with authentic flavors and dedicated staff, ideal for family celebrations, corporate meetings, and private luncheons.",
+    image: MEDIA.events.chefs,
+    featured: false,
+    highlights: [
+      "Curated Ethiopian or international 3-course set menu",
+      "Professional uniformed service & bar staff",
+      "Full tableware setup, linens & clearing",
+      "Complimentary tasting & menu consultation",
+    ],
+    status: "PUBLISHED",
+    sortOrder: 1,
+  },
+  {
+    id: "pkg-signature",
+    name: "Signature Package",
+    slug: "signature-package",
+    tagline: "Our most requested gala & reception spread",
+    price: "From 750 ETB / person",
+    guests: "60 – 150 guests",
+    minGuests: 60,
+    maxGuests: 150,
+    description:
+      "Our most popular catering service with live cooking stations, dedicated event captain, custom buffet styling, and complete bar package coordination.",
+    image: MEDIA.events.celebration,
+    featured: true,
+    highlights: [
+      "Custom multi-course banquet or gourmet buffet design",
+      "Live carving & hot injera specialty stations",
+      "Dedicated senior event captain & floor team",
+      "Full craft cocktail & beverage bar coordination",
+      "Elegant table styling, flowers & layout guidance",
+    ],
+    status: "PUBLISHED",
+    sortOrder: 2,
+  },
+  {
+    id: "pkg-grand",
+    name: "Grand Royal Package",
+    slug: "grand-royal-package",
+    tagline: "Uncompromising luxury for large events & weddings",
+    price: "From 1,200 ETB / person",
+    guests: "150+ guests",
+    minGuests: 150,
+    description:
+      "The pinnacle of Gize hospitality: executive chefs on-site, bespoke multi-tier menus, VIP service flow, and complete event logistics coordination.",
+    image: MEDIA.hero.slide1,
+    featured: false,
+    highlights: [
+      "Bespoke chef tasting & full multi-tier culinary design",
+      "Executive Chef & master bartenders on-site",
+      "Extended luxury beverage & champagne programs",
+      "Complete timeline, logistics & stage coordination",
+      "Priority calendar scheduling & VIP dedicated attendants",
+    ],
+    status: "PUBLISHED",
+    sortOrder: 3,
+  },
+];
+

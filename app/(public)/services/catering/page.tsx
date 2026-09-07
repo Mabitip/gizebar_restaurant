@@ -17,10 +17,14 @@ import { FadeIn, Stagger, StaggerItem } from "@/components/ui/motion";
 import { MEDIA } from "@/lib/media";
 import { SITE, phoneTel } from "@/lib/utils";
 
+import { getCateringPackages } from "@/lib/data";
+
 export const metadata: Metadata = {
   title: "Catering",
   description: `Premium catering by ${SITE.name} — Ethiopian and international menus, full service, and fair pricing for weddings, corporate events, and celebrations in Addis Ababa.`,
 };
+
+export const revalidate = 0;
 
 const OCCASIONS = [
   {
@@ -46,47 +50,6 @@ const OCCASIONS = [
     title: "Community & Cultural Events",
     description:
       "Large-format Ethiopian platters and buffet service that celebrate heritage with generous hospitality.",
-  },
-] as const;
-
-const PACKAGES = [
-  {
-    name: "Essential",
-    tagline: "Refined simplicity",
-    guests: "20 – 60 guests",
-    featured: false,
-    highlights: [
-      "Curated Ethiopian or international set menu",
-      "Professional service staff",
-      "Setup & clearing",
-      "Complimentary consultation",
-    ],
-  },
-  {
-    name: "Signature",
-    tagline: "Our most requested",
-    featured: true,
-    guests: "60 – 150 guests",
-    highlights: [
-      "Custom multi-course or buffet design",
-      "Live carving or injera stations",
-      "Dedicated event captain",
-      "Bar package coordination",
-      "Table styling guidance",
-    ],
-  },
-  {
-    name: "Grand",
-    tagline: "Uncompromising luxury",
-    featured: false,
-    guests: "150+ guests",
-    highlights: [
-      "Bespoke tasting & full planning",
-      "Chef on-site presence",
-      "Extended beverage programs",
-      "Timeline & logistics management",
-      "Priority scheduling",
-    ],
   },
 ] as const;
 
@@ -129,7 +92,9 @@ const PROMISES = [
   },
 ] as const;
 
-export default function CateringPage() {
+export default async function CateringPage() {
+  const packages = await getCateringPackages();
+
   return (
     <div className="pt-20">
       <section className="relative flex min-h-[78vh] items-end overflow-hidden pb-16 md:min-h-[85vh] md:pb-24">
@@ -249,53 +214,78 @@ export default function CateringPage() {
             </p>
           </FadeIn>
           <Stagger className="mt-12 grid gap-6 lg:grid-cols-3">
-            {PACKAGES.map((pkg) => (
-              <StaggerItem key={pkg.name}>
+            {packages.map((pkg) => (
+              <StaggerItem key={pkg.id || pkg.name}>
                 <div
                   className={
                     pkg.featured
-                      ? "relative h-full rounded-3xl bg-inverse p-8 text-inverse-fg shadow-2xl ring-1 ring-primary/40"
-                      : "glass-card h-full rounded-3xl p-8"
+                      ? "relative flex flex-col justify-between h-full rounded-3xl bg-inverse p-8 text-inverse-fg shadow-2xl ring-2 ring-primary"
+                      : "glass-card flex flex-col justify-between h-full rounded-3xl p-8"
                   }
                 >
                   {pkg.featured && (
-                    <span className="absolute -top-3 left-8 rounded-full bg-primary px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-white">
+                    <span className="absolute -top-3 left-8 rounded-full bg-primary px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-white shadow-md">
                       Most popular
                     </span>
                   )}
-                  <p
-                    className={
-                      pkg.featured
-                        ? "text-xs uppercase tracking-[0.3em] text-primary"
-                        : "eyebrow"
-                    }
-                  >
-                    {pkg.tagline}
-                  </p>
-                  <h3 className="mt-3 font-heading text-3xl">{pkg.name}</h3>
-                  <p
-                    className={
-                      pkg.featured ? "mt-2 text-sm text-inverse-fg/70" : "mt-2 text-sm text-muted"
-                    }
-                  >
-                    {pkg.guests}
-                  </p>
-                  <ul className="mt-8 space-y-3">
-                    {pkg.highlights.map((line) => (
-                      <li key={line} className="flex gap-3 text-sm leading-relaxed">
-                        <CheckCircle2
-                          className={
-                            pkg.featured
-                              ? "mt-0.5 h-4 w-4 shrink-0 text-primary"
-                              : "mt-0.5 h-4 w-4 shrink-0 text-primary"
-                          }
+                  <div>
+                    {pkg.image && (
+                      <div className="relative mb-6 h-40 w-full overflow-hidden rounded-2xl">
+                        <Image
+                          src={pkg.image}
+                          alt={pkg.name}
+                          fill
+                          className="object-cover transition duration-500 hover:scale-105"
+                          sizes="(max-width:1024px) 100vw, 33vw"
                         />
-                        <span className={pkg.featured ? "text-inverse-fg/85" : "text-muted"}>
-                          {line}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                      </div>
+                    )}
+                    <p
+                      className={
+                        pkg.featured
+                          ? "text-xs uppercase tracking-[0.3em] text-primary font-semibold"
+                          : "eyebrow"
+                      }
+                    >
+                      {pkg.tagline || "Custom Experience"}
+                    </p>
+                    <h3 className="mt-2 font-heading text-3xl">{pkg.name}</h3>
+                    <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-border/40 pb-4">
+                      <span className="font-heading text-xl font-semibold text-primary">
+                        {pkg.price || "Price on request"}
+                      </span>
+                      <span
+                        className={
+                          pkg.featured ? "text-xs text-inverse-fg/70" : "text-xs text-muted"
+                        }
+                      >
+                        {pkg.guests || "Flexible capacity"}
+                      </span>
+                    </div>
+                    {pkg.description && (
+                      <p
+                        className={
+                          pkg.featured
+                            ? "mt-4 text-xs leading-relaxed text-inverse-fg/80"
+                            : "mt-4 text-xs leading-relaxed text-muted"
+                        }
+                      >
+                        {pkg.description}
+                      </p>
+                    )}
+                    <ul className="mt-6 space-y-3">
+                      {pkg.highlights?.map((line) => (
+                        <li key={line} className="flex gap-3 text-sm leading-relaxed">
+                          <CheckCircle2
+                            className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                          />
+                          <span className={pkg.featured ? "text-inverse-fg/90" : "text-muted"}>
+                            {line}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                   <Button
                     asChild
                     className={
@@ -304,7 +294,7 @@ export default function CateringPage() {
                         : "mt-8 w-full"
                     }
                   >
-                    <a href="#inquire">Inquire</a>
+                    <a href="#inquire">Inquire for {pkg.name}</a>
                   </Button>
                 </div>
               </StaggerItem>

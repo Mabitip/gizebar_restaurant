@@ -219,6 +219,23 @@ export const createOrderSchema = z.object({
   items: z.array(orderItemInputSchema).min(1).max(30),
 });
 
+export const cateringPackageSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(2, "Package name is required"),
+  tagline: z.string().optional().default(""),
+  price: z.string().optional().default(""),
+  guests: z.string().optional().default(""),
+  minGuests: z.number().int().optional().nullable(),
+  maxGuests: z.number().int().optional().nullable(),
+  description: z.string().optional().default(""),
+  image: z.string().optional().nullable(),
+  featured: z.boolean().optional().default(false),
+  highlights: z.array(z.string()).optional().default([]),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional().default("PUBLISHED"),
+  sortOrder: z.number().int().optional().default(0),
+});
+
+
 export type ReservationInput = z.infer<typeof reservationSchema>;
 export type ContactInput = z.infer<typeof contactSchema>;
 export type NewsletterInput = z.infer<typeof newsletterSchema>;

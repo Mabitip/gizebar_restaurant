@@ -9,6 +9,7 @@ import { rolesFor, type Resource } from "@/lib/permissions";
 import { slugify } from "@/lib/utils";
 import {
   categorySchema,
+  cateringPackageSchema,
   contactStatusSchema,
   diningTableSchema,
   eventAdminSchema,
@@ -622,6 +623,108 @@ export async function deleteSocialLinks(ids: string[]) {
     revalidatePath("/admin/settings");
     return ok("Deleted");
   } catch {
+    return fail("Delete failed");
+  }
+}
+
+/* ─── Catering Packages ─── */
+export async function upsertCateringPackage(
+  input: z.infer<typeof cateringPackageSchema>
+) {
+  const session = await guard("catering", "write");
+  const parsed = cateringPackageSchema.safeParse(input);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]?.message || "Invalid package data";
+    return fail(issue);
+  }
+
+  try {
+    const setting = await prisma.setting.findUnique({
+      where: { key: "catering_packages" },
+    });
+    const existingList: Array<z.infer<typeof cateringPackageSchema>> =
+      setting?.value && Array.isArray(setting.value)
+        ? (setting.value as Array<z.infer<typeof cateringPackageSchema>>)
+        : (await import("@/lib/seed-data")).SEED_CATERING_PACKAGES;
+
+    const baseSlug = slugify(parsed.data.name) || `pkg-${Date.now()}`;
+    const id = parsed.data.id || `pkg-${Date.now()}-${randomBytes(2).toString("hex")}`;
+
+    const newPkg = {
+      id,
+      name: parsed.data.name,
+      slug: baseSlug,
+      tagline: parsed.data.tagline || "",
+      price: parsed.data.price || "",
+      guests: parsed.data.guests || "",
+      minGuests: parsed.data.minGuests || undefined,
+      maxGuests: parsed.data.maxGuests || undefined,
+      description: parsed.data.description || "",
+      image: parsed.data.image || null,
+      featured: parsed.data.featured ?? false,
+      highlights: parsed.data.highlights || [],
+      status: parsed.data.status ?? "PUBLISHED",
+      sortOrder: parsed.data.sortOrder ?? existingList.length + 1,
+    };
+
+    let updatedList: typeof existingList;
+    if (parsed.data.id) {
+      const idx = existingList.findIndex((p) => p.id === parsed.data.id);
+      if (idx >= 0) {
+        updatedList = [...existingList];
+        updatedList[idx] = newPkg;
+      } else {
+        updatedList = [...existingList, newPkg];
+      }
+    } else {
+      updatedList = [...existingList, newPkg];
+    }
+
+    await prisma.setting.upsert({
+      where: { key: "catering_packages" },
+      update: { value: updatedList },
+      create: { key: "catering_packages", value: updatedList },
+    });
+
+    await log("UPSERT", "CateringPackage", id, newPkg.name, session.userId);
+    revalidatePath("/admin/catering");
+    revalidatePath("/catering");
+    revalidatePath("/services/catering");
+    revalidatePath("/services");
+    return ok("Catering package saved successfully");
+  } catch (e) {
+    console.error("Failed to save catering package:", e);
+    return fail("Failed to save catering package.");
+  }
+}
+
+export async function deleteCateringPackages(ids: string[]) {
+  const session = await guard("catering", "delete");
+  try {
+    const setting = await prisma.setting.findUnique({
+      where: { key: "catering_packages" },
+    });
+    const existingList: Array<z.infer<typeof cateringPackageSchema>> =
+      setting?.value && Array.isArray(setting.value)
+        ? (setting.value as Array<z.infer<typeof cateringPackageSchema>>)
+        : (await import("@/lib/seed-data")).SEED_CATERING_PACKAGES;
+
+    const idsSet = new Set(ids);
+    const updatedList = existingList.filter((p) => !idsSet.has(p.id || ""));
+
+    await prisma.setting.upsert({
+      where: { key: "catering_packages" },
+      update: { value: updatedList },
+      create: { key: "catering_packages", value: updatedList },
+    });
+
+    await log("DELETE", "CateringPackage", ids.join(","), undefined, session.userId);
+    revalidatePath("/admin/catering");
+    revalidatePath("/catering");
+    revalidatePath("/services/catering");
+    return ok("Package deleted successfully");
+  } catch (e) {
+    console.error("Delete catering package failed:", e);
     return fail("Delete failed");
   }
 }

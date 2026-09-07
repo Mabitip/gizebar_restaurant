@@ -1,5 +1,7 @@
 import {
   SEED_CATEGORIES,
+  SEED_CATERING_PACKAGES,
+  type CateringPackage,
   SEED_EVENTS,
   SEED_GALLERY,
   SEED_MENU,
@@ -373,5 +375,34 @@ export async function getOrderMenuItems(): Promise<OrderMenuItemView[]> {
         sortOrder: m.sortOrder,
       })),
     }));
+  }, fallback);
+}
+
+export async function getCateringPackages(): Promise<CateringPackage[]> {
+  const fallback = SEED_CATERING_PACKAGES;
+  return tryPrisma(async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const setting = await prisma.setting.findUnique({
+      where: { key: "catering_packages" },
+    });
+    if (!setting?.value || !Array.isArray(setting.value) || setting.value.length === 0) {
+      return fallback;
+    }
+    const pkgs = setting.value as CateringPackage[];
+    return pkgs.filter((p) => p.status !== "DRAFT" && p.status !== "ARCHIVED");
+  }, fallback);
+}
+
+export async function getAllCateringPackagesAdmin(): Promise<CateringPackage[]> {
+  const fallback = SEED_CATERING_PACKAGES;
+  return tryPrisma(async () => {
+    const { prisma } = await import("@/lib/prisma");
+    const setting = await prisma.setting.findUnique({
+      where: { key: "catering_packages" },
+    });
+    if (!setting?.value || !Array.isArray(setting.value) || setting.value.length === 0) {
+      return fallback;
+    }
+    return setting.value as CateringPackage[];
   }, fallback);
 }
