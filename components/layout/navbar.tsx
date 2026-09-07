@@ -18,15 +18,36 @@ function linkActive(pathname: string, href: string) {
 function NavItem({ link, pathname }: { link: NavLink; pathname: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasChildren = !!link.children?.length;
   const active =
     linkActive(pathname, link.href) ||
     !!link.children?.some((child) => linkActive(pathname, child.href));
 
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setOpen(false);
+    }, 150);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onPointer = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -38,6 +59,10 @@ function NavItem({ link, pathname }: { link: NavLink; pathname: string }) {
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   if (!hasChildren) {
     return (
@@ -55,36 +80,52 @@ function NavItem({ link, pathname }: { link: NavLink; pathname: string }) {
     );
   }
 
+  const dropdownItems = [
+    { href: link.href, label: `${link.label} Overview` },
+    ...link.children!,
+  ];
+
   return (
     <div
       ref={ref}
       className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <button
         type="button"
         className={cn(
-          "inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm transition-colors",
+          "inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm transition-colors cursor-pointer",
           active
             ? "bg-white/15 text-white underline decoration-white decoration-2 underline-offset-8"
             : "text-white/85 hover:text-white"
         )}
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          setOpen((v) => !v);
+        }}
       >
         {link.label}
         <ChevronDown
-          className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")}
+          className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")}
         />
       </button>
-      {open && (
+
+      <div
+        className={cn(
+          "absolute left-1/2 top-full z-50 pt-2 -translate-x-1/2 transition-all duration-200",
+          open
+            ? "visible opacity-100 translate-y-0 pointer-events-auto"
+            : "invisible opacity-0 translate-y-1 pointer-events-none"
+        )}
+      >
         <div
           role="menu"
-          className="absolute left-1/2 top-full z-50 mt-2 min-w-[200px] -translate-x-1/2 rounded-2xl border border-white/15 bg-primary/95 p-2 shadow-xl backdrop-blur-xl"
+          className="min-w-[210px] rounded-2xl border border-white/15 bg-primary/95 p-2 shadow-xl backdrop-blur-xl"
         >
-          {link.children!.map((child) => (
+          {dropdownItems.map((child) => (
             <Link
               key={child.href}
               href={child.href}
@@ -92,8 +133,8 @@ function NavItem({ link, pathname }: { link: NavLink; pathname: string }) {
               className={cn(
                 "block rounded-xl px-4 py-2.5 text-sm transition",
                 linkActive(pathname, child.href)
-                  ? "bg-white text-primary"
-                  : "text-white/90 hover:bg-white/10"
+                  ? "bg-white text-primary font-medium"
+                  : "text-white/90 hover:bg-white/15"
               )}
               onClick={() => setOpen(false)}
             >
@@ -101,7 +142,7 @@ function NavItem({ link, pathname }: { link: NavLink; pathname: string }) {
             </Link>
           ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -259,6 +300,17 @@ export function Navbar({
                   </button>
                   {isExpanded && (
                     <div className="mt-1 space-y-1 border-l border-white/20 pl-3">
+                      <Link
+                        href={link.href}
+                        className={cn(
+                          "block rounded-xl px-4 py-2.5 text-sm",
+                          linkActive(pathname, link.href)
+                            ? "bg-white text-primary font-medium"
+                            : "text-white/85 hover:bg-white/10"
+                        )}
+                      >
+                        {link.label} Overview
+                      </Link>
                       {link.children.map((child) => (
                         <Link
                           key={child.href}
@@ -266,7 +318,7 @@ export function Navbar({
                           className={cn(
                             "block rounded-xl px-4 py-2.5 text-sm",
                             linkActive(pathname, child.href)
-                              ? "bg-white text-primary"
+                              ? "bg-white text-primary font-medium"
                               : "text-white/85 hover:bg-white/10"
                           )}
                         >
