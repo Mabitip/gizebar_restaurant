@@ -26,6 +26,7 @@ import {
 } from "@/lib/validations";
 import { sanitizeVideoEmbedUrl } from "@/lib/video-url";
 import { deleteMedia } from "@/lib/cloudinary";
+import { SEED_CATERING_PACKAGES, type CateringPackage } from "@/lib/seed-data";
 import { z } from "zod";
 
 async function guard(resource: Resource, action: "read" | "write" | "delete" | "manage" = "write") {
@@ -642,15 +643,15 @@ export async function upsertCateringPackage(
     const setting = await prisma.setting.findUnique({
       where: { key: "catering_packages" },
     });
-    const existingList: Array<z.infer<typeof cateringPackageSchema>> =
+    const existingList: CateringPackage[] =
       setting?.value && Array.isArray(setting.value)
-        ? (setting.value as Array<z.infer<typeof cateringPackageSchema>>)
-        : (await import("@/lib/seed-data")).SEED_CATERING_PACKAGES;
+        ? (setting.value as CateringPackage[])
+        : SEED_CATERING_PACKAGES;
 
     const baseSlug = slugify(parsed.data.name) || `pkg-${Date.now()}`;
     const id = parsed.data.id || `pkg-${Date.now()}-${randomBytes(2).toString("hex")}`;
 
-    const newPkg = {
+    const newPkg: CateringPackage = {
       id,
       name: parsed.data.name,
       slug: baseSlug,
@@ -660,14 +661,14 @@ export async function upsertCateringPackage(
       minGuests: parsed.data.minGuests || undefined,
       maxGuests: parsed.data.maxGuests || undefined,
       description: parsed.data.description || "",
-      image: parsed.data.image || null,
+      image: parsed.data.image || undefined,
       featured: parsed.data.featured ?? false,
       highlights: parsed.data.highlights || [],
       status: parsed.data.status ?? "PUBLISHED",
       sortOrder: parsed.data.sortOrder ?? existingList.length + 1,
     };
 
-    let updatedList: typeof existingList;
+    let updatedList: CateringPackage[];
     if (parsed.data.id) {
       const idx = existingList.findIndex((p) => p.id === parsed.data.id);
       if (idx >= 0) {
@@ -704,13 +705,13 @@ export async function deleteCateringPackages(ids: string[]) {
     const setting = await prisma.setting.findUnique({
       where: { key: "catering_packages" },
     });
-    const existingList: Array<z.infer<typeof cateringPackageSchema>> =
+    const existingList: CateringPackage[] =
       setting?.value && Array.isArray(setting.value)
-        ? (setting.value as Array<z.infer<typeof cateringPackageSchema>>)
-        : (await import("@/lib/seed-data")).SEED_CATERING_PACKAGES;
+        ? (setting.value as CateringPackage[])
+        : SEED_CATERING_PACKAGES;
 
     const idsSet = new Set(ids);
-    const updatedList = existingList.filter((p) => !idsSet.has(p.id || ""));
+    const updatedList = existingList.filter((p) => !idsSet.has(p.id));
 
     await prisma.setting.upsert({
       where: { key: "catering_packages" },

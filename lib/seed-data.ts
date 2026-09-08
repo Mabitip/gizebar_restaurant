@@ -730,7 +730,7 @@ export const SEED_CATERING_PACKAGES: CateringPackage[] = [
     minGuests: 150,
     description:
       "The pinnacle of Gize hospitality: executive chefs on-site, bespoke multi-tier menus, VIP service flow, and complete event logistics coordination.",
-    image: MEDIA.hero.slide1,
+    image: MEDIA.events.aisle,
     featured: false,
     highlights: [
       "Bespoke chef tasting & full multi-tier culinary design",
